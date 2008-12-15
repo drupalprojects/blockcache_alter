@@ -1,0 +1,58 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Block Cache alter.
+ */
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function blockcache_alter_form_alter(&$form, $form_state, $form_id) {
+  if ($form_id == 'block_admin_configure') {
+
+    // Blockcache options.
+    $options = array(
+      BLOCK_NO_CACHE => t('Do not cache'),
+      BLOCK_CACHE_GLOBAL => t('Cache once for everything (global)'),
+      BLOCK_CACHE_PER_PAGE => t('Per page'),
+      BLOCK_CACHE_PER_ROLE => t('Per role'),
+      BLOCK_CACHE_PER_ROLE | BLOCK_CACHE_PER_PAGE => t('Per role per page'),
+      BLOCK_CACHE_PER_USER => t('Per user'),
+      BLOCK_CACHE_PER_USER | BLOCK_CACHE_PER_PAGE => t('Per user per page'),
+    );
+
+    // Retrieve current cache setting for this block.
+    $default_value = db_result(db_query("SELECT cache FROM {blocks} WHERE module = '%s' AND delta = '%s'", $form['module']['#value'], $form['delta']['#value']));
+
+    // Create cache settings fieldset.
+    $form['cache'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Cache settings'),
+      '#weight' => 0,
+      '#collapsible' => TRUE,
+    );
+
+    $form['cache']['cache_block'] = array(
+      '#type' => 'select',
+      '#title' => t('Cache setting'),
+      '#description' => t('Select the appropriate cache setting for this block.'),
+      '#options' => $options,
+      '#default_value' => $default_value,
+    );
+
+    // Add our own submit handler.
+    $form['#submit'][] = 'blockcache_alter_save_settings';
+
+  }
+}
+
+/**
+ * Submit callback. Saves cache settings per block.
+ * Note, we don't flush cache_block here, people should use
+ * the clear cache button on the performance page.
+ */
+function blockcache_alter_save_settings($form, &$form_state) {
+  db_query("UPDATE {blocks} set cache = %d WHERE module = '%s' AND delta = '%s'", $form_state['values']['cache_block'], $form_state['values']['module'], $form_state['values']['delta']);
+}
