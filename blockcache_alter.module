@@ -30,7 +30,7 @@ function blockcache_alter_form_alter(&$form, $form_state, $form_id) {
     $form['cache'] = array(
       '#type' => 'fieldset',
       '#title' => t('Cache settings'),
-      '#weight' => 0,
+      '#weight' => 1,
       '#collapsible' => TRUE,
     );
 
@@ -42,7 +42,8 @@ function blockcache_alter_form_alter(&$form, $form_state, $form_id) {
       '#default_value' => $default_value,
     );
 
-    // Add our own submit handler.
+    // Add our own submit handler and change the weight.
+    $form['submit']['#weight'] = 2;
     $form['#submit'][] = 'blockcache_alter_save_settings';
 
   }
