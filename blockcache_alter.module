@@ -51,9 +51,9 @@ function blockcache_alter_form_alter(&$form, $form_state, $form_id) {
 
 /**
  * Submit callback. Saves cache settings per block.
- * Note, we don't flush cache_block here, people should use
- * the clear cache button on the performance page.
  */
 function blockcache_alter_save_settings($form, &$form_state) {
   db_query("UPDATE {blocks} set cache = %d WHERE module = '%s' AND delta = '%s'", $form_state['values']['cache_block'], $form_state['values']['module'], $form_state['values']['delta']);
+  cache_clear_all();
 }
+
