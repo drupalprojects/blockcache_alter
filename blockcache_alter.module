@@ -13,7 +13,7 @@ function blockcache_alter_form_alter(&$form, $form_state, $form_id) {
   if ($form_id == 'block_admin_configure') {
 
     // Blockcache options.
-    $options = array(
+    $block_cache_options = array(
       BLOCK_NO_CACHE => t('Do not cache'),
       BLOCK_CACHE_GLOBAL => t('Cache once for everything (global)'),
       BLOCK_CACHE_PER_PAGE => t('Per page'),
@@ -21,6 +21,12 @@ function blockcache_alter_form_alter(&$form, $form_state, $form_id) {
       BLOCK_CACHE_PER_ROLE | BLOCK_CACHE_PER_PAGE => t('Per role per page'),
       BLOCK_CACHE_PER_USER => t('Per user'),
       BLOCK_CACHE_PER_USER | BLOCK_CACHE_PER_PAGE => t('Per user per page'),
+    );
+
+    // Cache clear actions
+    $cache_clear_actions = array(
+      '1' => t('Clear caching for this block only'),
+      '2' => t('Clear all cache (block and page)'),
     );
 
     // Retrieve current cache setting for this block.
@@ -38,22 +44,57 @@ function blockcache_alter_form_alter(&$form, $form_state, $form_id) {
       '#type' => 'select',
       '#title' => t('Cache setting'),
       '#description' => t('Select the appropriate cache setting for this block.'),
-      '#options' => $options,
+      '#options' => $block_cache_options,
       '#default_value' => $default_value,
     );
+    
+    $form['cache']['cache_block_clear'] = array(
+      '#type' => 'radios',
+      '#title' => t('Clear cache'),
+      '#description' => t('Select the appropriate cache clearing action after saving this block.'),
+      '#options' => $cache_clear_actions,
+      '#default_value' => 1,
+    );
 
-    // Add our own submit handler and change the weight.
+    // Remove the default submit handler and add or own. Changes weight also.
     $form['submit']['#weight'] = 2;
+    unset($form['#submit'][0]);
     $form['#submit'][] = 'blockcache_alter_save_settings';
 
   }
 }
 
 /**
- * Submit callback. Saves cache settings per block.
+ * Submit callback. Saves block configuration and cache settings per block.
+ * This module takes over from block_admin_configure_submit() so we can
+ * decide what to clear from cache.
  */
 function blockcache_alter_save_settings($form, &$form_state) {
-  db_query("UPDATE {blocks} set cache = %d WHERE module = '%s' AND delta = '%s'", $form_state['values']['cache_block'], $form_state['values']['module'], $form_state['values']['delta']);
-  cache_clear_all();
-}
+  if (!form_get_errors()) {
+    db_query("UPDATE {blocks} SET visibility = %d, pages = '%s', custom = %d, title = '%s' WHERE module = '%s' AND delta = '%s'", $form_state['values']['visibility'], trim($form_state['values']['pages']), $form_state['values']['custom'], $form_state['values']['title'], $form_state['values']['module'], $form_state['values']['delta']);
+    db_query("DELETE FROM {blocks_roles} WHERE module = '%s' AND delta = '%s'", $form_state['values']['module'], $form_state['values']['delta']);
+    foreach (array_filter($form_state['values']['roles']) as $rid) {
+      db_query("INSERT INTO {blocks_roles} (rid, module, delta) VALUES (%d, '%s', '%s')", $rid, $form_state['values']['module'], $form_state['values']['delta']);
+    }
+    module_invoke($form_state['values']['module'], 'block', 'save', $form_state['values']['delta'], $form_state['values']);
+    drupal_set_message(t('The block configuration has been saved.'));
 
+    // Update block cache settings.
+    db_query("UPDATE {blocks} set cache = %d WHERE module = '%s' AND delta = '%s'", $form_state['values']['cache_block'], $form_state['values']['module'], $form_state['values']['delta']);
+
+    // Cache clearing.
+    switch ($form_state['values']['cache_block_clear']) {
+      case '1':
+        cache_clear_all($form_state['values']['module'] .':'. $form_state['values']['delta'], 'cache_block', TRUE);
+        break;
+        
+      case '2':
+        cache_clear_all();
+        break; 
+    }    
+    
+    // Redirect.
+    $form_state['redirect'] = 'admin/build/block';
+    return;
+  }
+}
