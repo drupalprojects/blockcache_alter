@@ -1,0 +1,10 @@
+<?php
+// $Id$
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function blockcache_alter_uninstall() {
+  db_query("DELETE FROM {variable} WHERE name LIKE 'bc_%%'");
+  variable_del('bca_debug');
+}
