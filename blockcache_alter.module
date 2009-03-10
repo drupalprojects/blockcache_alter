@@ -24,6 +24,12 @@ function blockcache_alter_menu() {
  * Menu callback, settings page for blockcache alter
  */
 function blockcache_alter_admin_settings() {
+  $form['bca_corepatch'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Core patch ?'),
+    '#description' => t('Check this box if you applied one of the 2 core patches that comes with this module. This will extend the caching settings fieldset on the block configuration page. Note: if you did not apply the patch but check the box, the additional functionality simply won\'t work at all.'),
+    '#default_value' => variable_get('bca_corepatch', 0),
+  );
   $form['bca_debug'] = array(
     '#type' => 'checkbox',
     '#title' => t('Show debug information ?'),
@@ -61,6 +67,9 @@ function blockcache_alter_form_alter(&$form, $form_state, $form_id) {
     // Retrieve current cache setting for this block.
     $default_value = db_result(db_query("SELECT cache FROM {blocks} WHERE module = '%s' AND delta = '%s'", $form['module']['#value'], $form['delta']['#value']));
 
+    // Core patch applied or not.
+    $core_patch = variable_get('bca_corepatch', 0);
+
     // Blockcache fieldset.
     $form['cache'] = array(
       '#type' => 'fieldset',
@@ -82,51 +91,54 @@ function blockcache_alter_form_alter(&$form, $form_state, $form_id) {
     // Cache clearing option after saving this block.
     $display = ($default_value == BLOCK_NO_CACHE) ? 'none' : 'block';
     $form['cache']['cache_block_clear'] = array(
-      '#prefix' => '<div id="blockcache_alter_wrapper" style="display: '. $display .';">',
     	'#type' => 'radios',
       '#title' => t('Clear cache'),
+      '#prefix' => '<div id="blockcache_alter_wrapper" style="display: '. $display .';">',
       '#description' => t('Select the appropriate cache clearing action after saving this block.'),
       '#options' => $cache_clear_actions,
       '#default_value' => 1,
     );
 
-    // Blockcache lifetime.
-    $form['cache']['bc_life'] = array(
-      '#type' => 'textfield',
-      '#title' => t('Cache lifetime'),
-      '#size' => 10,
-      '#default_value' => variable_get('bc_life_'. $form['module']['#value'] . '_' . $form['delta']['#value'], ''),
-      '#description' => t('Lifetime (in seconds) of this item in the cache. How often is the content of this block refreshed? Leave blank to refresh automatically when new content is created.'),
-    );
+    // Show options underneath onl if coe patch is applied.
+    if ($core_patch == TRUE) {
+      // Blockcache lifetime.
+      $form['cache']['bc_life'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Cache lifetime'),
+        '#size' => 10,
+        '#default_value' => variable_get('bc_life_'. $form['module']['#value'] . '_' . $form['delta']['#value'], ''),
+        '#description' => t('Lifetime (in seconds) of this item in the cache. How often is the content of this block refreshed? Leave blank to refresh automatically when new content is created.'),
+      );
 
-    // Blockcache refresh.
-    $form['cache']['bc_refresh'] = array(
-      '#type' => 'checkboxes',
-      '#title' => t('Refresh when'),
-      '#options' => array(
-        'node' => t('A node is added/updated/deleted'),
-        'comment' => t('A comment is added/updated/deleted'),
-        'user' => t('A user is added/updated/deleted'),
-        'login' => t('A user logs in our out'),
-      ),
-			'#default_value' => variable_get('bc_refresh_'. $form['module']['#value'] . '_' . $form['delta']['#value'], array()),
-    );
+      // Blockcache refresh.
+      $form['cache']['bc_refresh'] = array(
+        '#type' => 'checkboxes',
+        '#title' => t('Refresh when'),
+        '#options' => array(
+          'node' => t('A node is added/updated/deleted'),
+          'comment' => t('A comment is added/updated/deleted'),
+          'user' => t('A user is added/updated/deleted'),
+          'login' => t('A user logs in our out'),
+        ),
+  			'#default_value' => variable_get('bc_refresh_'. $form['module']['#value'] . '_' . $form['delta']['#value'], array()),
+      );
 
-    // Associate with node types.
-    $node_types = array();
-	  $types = node_get_types('types');
-	  foreach ($types as $type) {
-		  $node_types[$type->type] = $type->name;
-	  }
+      // Associate with node types.
+      $node_types = array();
+  	  $types = node_get_types('types');
+  	  foreach ($types as $type) {
+  		  $node_types[$type->type] = $type->name;
+  	  }
 
-    $form['cache']['bc_relate'] = array(
-      '#suffix' => '</div>',
-      '#type' => 'checkboxes',
-      '#title' => t('Relation'),
-     	'#options' => $node_types,
-			'#default_value' => variable_get('bc_relate_'. $form['module']['#value'] . '_' . $form['delta']['#value'], array()),
-      '#description' => t('Which node type should cause the block refresh?'),
-    );
+      $form['cache']['bc_relate'] = array(
+        '#suffix' => '</div>',
+        '#type' => 'checkboxes',
+        '#title' => t('Relation'),
+       	'#options' => $node_types,
+  			'#default_value' => variable_get('bc_relate_'. $form['module']['#value'] . '_' . $form['delta']['#value'], array()),
+        '#description' => t('Which node type should cause the block refresh?'),
+      );
+    }
 
     // Add our own submit handler and remove the default submit handler.
     unset($form['#submit'][0]);
@@ -154,7 +166,10 @@ function blockcache_alter_save_settings($form, &$form_state) {
     // Update block cache settings.
     db_query("UPDATE {blocks} set cache = %d WHERE module = '%s' AND delta = '%s'", $form_state['values']['cache_block'], $form_state['values']['module'], $form_state['values']['delta']);
 
-    // Cache clearing (without core patch)
+    // Core patch applied or not.
+    $core_patch = variable_get('bca_corepatch', 0);
+
+    // Cache clearing
     switch ($form_state['values']['cache_block_clear']) {
       case '1':
         cache_clear_all($form_state['values']['module'] .':'. $form_state['values']['delta'], 'cache_block', TRUE);
@@ -165,16 +180,15 @@ function blockcache_alter_save_settings($form, &$form_state) {
         break;
     }
 
-    // Update block cache expire settings (with core patch)
-    db_query("UPDATE {cache_block} set expire = %d WHERE cid like '%s'", $form_state['values']['bc_life'] + time(), $form_state['values']['module'] . ':' . $form_state['values']['delta'] . '%');
+    if ($core_patch == TRUE) {
+      // Update block cache expire settings (with core patch)
+      db_query("UPDATE {cache_block} set expire = %d WHERE cid like '%s'", $form_state['values']['bc_life'] + time(), $form_state['values']['module'] . ':' . $form_state['values']['delta'] . '%');
 
-    // Remember block expire time for the future (with core patch)
-    variable_set('bc_life_'. $form['module']['#value'] . '_' . $form['delta']['#value'], $form_state['values']['bc_life']);
-    variable_set('bc_refresh_'. $form['module']['#value'] . '_' . $form['delta']['#value'], $form_state['values']['bc_refresh']);
-    variable_set('bc_relate_'. $form['module']['#value'] . '_' . $form['delta']['#value'], $form_state['values']['bc_relate']);
-
-    // Cache clearing (with core patch)
-    cache_clear_all($form_state['values']['module'] .':'. $form_state['values']['delta'], 'cache_block', TRUE);
+      // Remember block expire time for the future (with core patch)
+      variable_set('bc_life_'. $form['module']['#value'] . '_' . $form['delta']['#value'], $form_state['values']['bc_life']);
+      variable_set('bc_refresh_'. $form['module']['#value'] . '_' . $form['delta']['#value'], $form_state['values']['bc_refresh']);
+      variable_set('bc_relate_'. $form['module']['#value'] . '_' . $form['delta']['#value'], $form_state['values']['bc_relate']);
+    }
 
     // Redirect.
     $form_state['redirect'] = 'admin/build/block';
