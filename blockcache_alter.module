@@ -25,13 +25,7 @@ function blockcache_alter_menu() {
  */
 function blockcache_alter_admin_settings() {
 
-  $status = 'not';
-  // See if we can find bca_debug.
-  $block_file = drupal_get_filename('module', 'block');
-  $block_contents = file_get_contents($block_file);
-  if (strpos($block_contents, 'bca_debug') !== FALSE) {
-    $status = '';
-  }
+  $status = _blockcache_alter_core_patch();
 
   $form['bca_corepatch'] = array(
     '#type' => 'checkbox',
@@ -54,7 +48,11 @@ function blockcache_alter_admin_settings() {
 function blockcache_alter_form_alter(&$form, $form_state, $form_id) {
   if ($form_id == 'block_admin_configure') {
 
+    // Add some funky hide and show javascript.
     drupal_add_js(drupal_get_path('module', 'blockcache_alter').'/blockcache_alter.js', 'module');
+
+    // Core patch applied or not.
+    $core_patch = variable_get('bca_corepatch', 0);
 
     // Blockcache options.
     $block_cache_options = array(
@@ -75,9 +73,6 @@ function blockcache_alter_form_alter(&$form, $form_state, $form_id) {
 
     // Retrieve current cache setting for this block.
     $default_value = db_result(db_query("SELECT cache FROM {blocks} WHERE module = '%s' AND delta = '%s'", $form['module']['#value'], $form['delta']['#value']));
-
-    // Core patch applied or not.
-    $core_patch = variable_get('bca_corepatch', 0);
 
     // Blockcache fieldset.
     $form['cache'] = array(
@@ -206,6 +201,19 @@ function blockcache_alter_save_settings($form, &$form_state) {
 }
 
 /**
+ * Helper function to check if a blockcache alter patch is found.
+ */
+function _blockcache_alter_core_patch() {
+  $status = 'not';
+  $block_file = drupal_get_filename('module', 'block');
+  $block_contents = file_get_contents($block_file);
+  if (strpos($block_contents, 'bca_debug') !== FALSE) {
+    $status = '';
+  }
+  return $status;
+}
+
+/**
  * Implemenation of hook_nodeapi().
  */
 function blockcache_alter_nodeapi($node, $op) {
@@ -266,13 +274,12 @@ function blockcache_alter_user($op) {
  * @param string $relatenodetype Related node type (if available)
  */
 function _blockcache_alter_cleanup($type, $relatenodetype = NULL) {
-  global $user;
   $debug = variable_get('bca_debug', FALSE) && user_access('administer site configuration');
   $result = db_query('SELECT * FROM {blocks}');
   while ($r = db_fetch_object($result)) {
     if (module_exists($r->module)) {
       $refresh = variable_get('bc_refresh_'. $r->module . '_' . $r->delta, array());
-      if ($refresh[$type]) {
+      if ($refresh[$type]) { // @todo Throws notices on user login, fix this!
         $relate = variable_get('bc_relate_'. $r->module . '_' . $r->delta, array());
   			if ($relate[$relatenodetype]) {
           $likes[] = 'cid LIKE "'. $r->module . ':' . $r->delta .'%"';
