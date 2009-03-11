@@ -8,18 +8,17 @@ Sponsored by One Agency - http://www.one-agency.be
 Overview:
 --------
 Alter cache settings per block. Cache settings per block are now set in code,
-but if you don't like the default - usually none, you can now easily change this
-per block on the block configuration page in a fieldset called caching.
+but if you don't like the default - usually none - you can now easily change this
+per block on the block configuration page in a fieldset called 'Caching settings'.
 Install this to speed up block rendering for authenticated users.
 
 The module also comes with 2 core patches you can apply to the block module
 which will make block caching much smarter. You'll be able to set expire times
-for block based on time and actions (nodeapi, comment and user).
+for block based and cache clearing on actions (nodeapi, comment and user).
 
 1: blockcache_alter_with_node_grants.patch: most users should use this one.
 
-2: blockcache_alter_no_node_grants.patch
-
+2: blockcache_alter_no_node_grants.patch:
 Experienced users can use this one if one of your installed modules is implementing
 a node_grants hook. Drupal checks on this and whenever 1 or more hooks are found
 block caching is disabled completely. Handle with care though, this might
@@ -34,8 +33,8 @@ Installation:
    usually be "sites/all/modules/").
 2. Go to "administer -> build -> modules" and enable the module.
 
-3. Apply one of the 2 core patches if you like. Copy them to the root 
-   of your Drupal installation and run following command:
+3. Apply one of the 2 core patches if you like. Copy them to the block
+   modules directory of your Drupal installation and run following command:
    
    patch -p0 < filename.
    
@@ -47,13 +46,31 @@ Configuration:
 --------------
 Go to "administer -> settings -> blockcache_alter" where you have 2 options
 
-- core patch: toggle this checkbox if you have applied one of the 2 core patches
-  Additional options for refreshing the block will appear in the caching
+- core patch: toggle this checkbox if you have applied one of the 2 core 
+  patches. Additional options for refreshing the block will appear in the caching
   fieldset on the block configuration page. Note: if you didn't apply a core patch,
-  these additional settings simplywon't have any effect.
+  these additional settings simply won't have any effect.
 - Debug: apply this only during testing and development. It will show you
   messages when a block is refreshed.
- 
+
+Calling a block from code
+-------------------------
+Sometimes, developers do not enable the block itself, but call it with the 
+module_invoke() function to put it somewhere they need. In that case blocks don't 
+get cached even if all cache settings are set, because the block does not belong to 
+any region. To work around that problem:
+
+1. set the cache settings for the block as you desire, leave it disabled
+2. call the block with the following piece of code:
+
+<?php
+$block = module_invoke('blockcache_alter', 'block', 'view', 'block,14');
+print $block['content'];
+?>
+
+The last parameter should consist of the name of original block and its original delta 
+seperated by comma. All blocks are cached that way.
+
 Support:
 --------
 Please use the issue queue available at http://drupal.org/project/imapulator to

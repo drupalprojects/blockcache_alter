@@ -24,10 +24,19 @@ function blockcache_alter_menu() {
  * Menu callback, settings page for blockcache alter
  */
 function blockcache_alter_admin_settings() {
+
+  $status = 'not';
+  // See if we can find bca_debug.
+  $block_file = drupal_get_filename('module', 'block');
+  $block_contents = file_get_contents($block_file);
+  if (strpos($block_contents, 'bca_debug') !== FALSE) {
+    $status = '';
+  }
+
   $form['bca_corepatch'] = array(
     '#type' => 'checkbox',
     '#title' => t('Core patch ?'),
-    '#description' => t('Check this box if you applied one of the 2 core patches that comes with this module. This will extend the caching settings fieldset on the block configuration page. Note: if you did not apply the patch but check the box, the additional functionality simply won\'t work at all.'),
+    '#description' => t('Check this box if you applied one of the 2 core patches that comes with this module. This will extend the caching settings fieldset on the block configuration page. Note: if you did not apply the patch but check the box, the additional functionality simply won\'t work at all.<br /><strong>Current status: you have @status applied a blockcache alter patch.</strong>', array('@status' => $status)),
     '#default_value' => variable_get('bca_corepatch', 0),
   );
   $form['bca_debug'] = array(
