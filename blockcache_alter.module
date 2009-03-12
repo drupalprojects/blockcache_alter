@@ -186,6 +186,8 @@ function blockcache_alter_save_settings($form, &$form_state) {
 
     if ($core_patch == TRUE) {
       // Update block cache expire settings (with core patch)
+      // This fails as there is no cache entry yet and when doing a new node_save everything borkes
+      // due to cache_clear_all
       db_query("UPDATE {cache_block} set expire = %d WHERE cid like '%s'", $form_state['values']['bc_life'] + time(), $form_state['values']['module'] . ':' . $form_state['values']['delta'] . '%');
 
       // Remember block expire time for the future (with core patch)
@@ -275,17 +277,18 @@ function blockcache_alter_user($op) {
  */
 function _blockcache_alter_cleanup($type, $relatednodetype = FALSE) {
   $info = array();
+  $time = time();
   $debug = variable_get('bca_debug', FALSE) && user_access('administer site configuration');
-  $result = db_query("SELECT module, delta FROM {blocks} WHERE status = '1'");
+  $result = db_query("SELECT module, delta FROM {blocks} WHERE status = '1' AND cache != '-1'");
   while ($r = db_fetch_object($result)) {
     if (module_exists($r->module)) {
       $refresh = variable_get('bc_refresh_'. $r->module . '_' . $r->delta, array());
       if (isset($refresh[$type])) {
         $relate = variable_get('bc_relate_'. $r->module . '_' . $r->delta, array());
-  			if ($relate[$relatednodetype] != '0' || $relatednodetype == 'user_actions') {
+  			if (is_array($relate) && $relate[$relatednodetype] === $relatednodetype) {
           db_query("DELETE FROM {cache_block} WHERE cid like '%s'", $r->module . ':' . $r->delta . '%');
           if ($debug) {
-            $info[] = t('<br /> - module: %mod, delta: %delta, life: %life', array('%mod' => $r->module, '%life' => $life, '%delta' => $r->delta));
+            $info[] = t('<br /> - module: %mod, delta: %delta', array('%mod' => $r->module, '%delta' => $r->delta));
           }
         }
     	}

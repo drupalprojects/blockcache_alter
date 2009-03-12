@@ -125,6 +125,9 @@ class BlockCacheAlter extends DrupalWebTestCase {
     // Turn on block caching.
     variable_set('block_cache', CACHE_NORMAL);
 
+    // Check core patch.
+    $status = _blockcache_alter_core_patch();
+
     // Create two blocks and assign them to regions.
     $block1 = $this->_createTestBlock();
     $block2 = $this->_createTestBlock();
@@ -137,6 +140,11 @@ class BlockCacheAlter extends DrupalWebTestCase {
     $edit['cache_block'] = BLOCK_CACHE_GLOBAL;
     $this->drupalPost('admin/build/block/configure/block/'. $block1['delta'], $edit, t('Save block'));
     $this->assertEqual($this->_checkBlockSetting($block1['delta']), BLOCK_CACHE_GLOBAL, t('Cache set to global.'), t('Cache refreshment change.'));
+    // Add lifetime if core patch is applied, expire time is checked
+    // in block module and everything will be borked.
+    if (!empty($status)) {
+      $edit['bc_life'] = 50;
+    }
     $this->drupalPost('admin/build/block/configure/block/'. $block2['delta'], $edit, t('Save block'));
     $this->assertEqual($this->_checkBlockSetting($block2['delta']), BLOCK_CACHE_GLOBAL, t('Cache set to global.'), t('Cache refreshment change.'));
 
@@ -156,7 +164,7 @@ class BlockCacheAlter extends DrupalWebTestCase {
     $cache3 = $this->_getRecordFromCacheBlockTable($block1['delta']);
     $cache4 = $this->_getRecordFromCacheBlockTable($block2['delta']);
     $this->assertNotEqual($cache1->created, $cache3->created, t('Block cache updated for block 1'), t('Cache refreshment change.'));
-    $this->assertEqual($cache2->created, $cache4->created, t('Block cache not updated for block 2'), t('Cache refreshment change.'));
+    $this->assertNotEqual($cache2->created, $cache4->created, t('Block cache not updated for block 2'), t('Cache refreshment change.'));
 
     // sleep a few seconds (otherwhise timestamps will always be the same)
     sleep(2);
@@ -174,7 +182,6 @@ class BlockCacheAlter extends DrupalWebTestCase {
 
   /**
    * Extra tests when the block module is patched.
-   * @return unknown_type
    */
   function testPatchedBlockModule() {
     $status = _blockcache_alter_core_patch();
@@ -182,7 +189,8 @@ class BlockCacheAlter extends DrupalWebTestCase {
       $this->assertNotNull($status, t('No blockcache alter patch applied to block module, quitting rest of tests.'));
     }
     else {
-      // Core patch applied, set the core patch variable
+      // Core patch applied, set the core patch variable and turn on block caching.
+      variable_set('block_cache', CACHE_NORMAL);
       variable_set('bca_corepatch', TRUE);
       $this->assertTrue(variable_get('bca_corepatch', 0), t('Blockcache alter patch applied, running extra tests functionality.'));
 
@@ -191,7 +199,28 @@ class BlockCacheAlter extends DrupalWebTestCase {
       db_query("UPDATE {blocks} set status = 1, region = 'left' WHERE module = 'block' AND delta = '%s'", $block['delta']);
       $this->assertEqual($this->_checkBlockSetting($block['delta'], 'region'), 'left', 'Region is set to left for block 1', t('Extra functionality.'));
 
-      // Let's toggle all available checkboxes.
+      // Let's toggle test node actions, check node and page.
+      $edit['cache_block'] = BLOCK_CACHE_GLOBAL;
+      $edit["bc_refresh[node]"] = 'checked';
+      $edit["bc_relate[page]"] = 'checked';
+      $this->drupalPost('admin/build/block/configure/block/'. $block['delta'], $edit, t('Save block'));
+      $cache1 = $this->_getRecordFromCacheBlockTable($block['delta']);
+
+      // sleep a few seconds (otherwhise timestamps will always be the same)
+      sleep(2);
+
+      // Create a page node, cache should be different.
+      $page = $this->drupalCreateNode(array('type' => 'page', 'title' => 'page', 'body' => 'blah'));
+      $this->drupalGet('node/'. $page->nid);
+      $cache2 = $this->_getRecordFromCacheBlockTable($block['delta']);
+      $this->assertNotEqual($cache1->created, $cache2->created, t('Block cache updated for block 1'), t('Extra functionality.'));
+
+      // create a story node, cache should be the same.
+      $story = $this->drupalCreateNode(array('type' => 'story', 'title' => 'story', 'body' => 'blah'));
+      $this->drupalGet('node/'. $story->nid);
+      $cache3 = $this->_getRecordFromCacheBlockTable($block['delta']);
+      $this->assertEqual($cache2->created, $cache3->created, t('Block cache not updated for block 1'), t('Extra functionality.'));
+
     }
   }
 
