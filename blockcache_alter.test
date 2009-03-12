@@ -182,10 +182,16 @@ class BlockCacheAlter extends DrupalWebTestCase {
       $this->assertNotNull($status, t('No blockcache alter patch applied to block module, quitting rest of tests.'));
     }
     else {
+      // Core patch applied, set the core patch variable
       variable_set('bca_corepatch', TRUE);
       $this->assertTrue(variable_get('bca_corepatch', 0), t('Blockcache alter patch applied, running extra tests functionality.'));
 
+      // Create two blocks and assign them to regions.
+      $block = $this->_createTestBlock();
+      db_query("UPDATE {blocks} set status = 1, region = 'left' WHERE module = 'block' AND delta = '%s'", $block['delta']);
+      $this->assertEqual($this->_checkBlockSetting($block['delta'], 'region'), 'left', 'Region is set to left for block 1', t('Extra functionality.'));
 
+      // Let's toggle all available checkboxes.
     }
   }
 

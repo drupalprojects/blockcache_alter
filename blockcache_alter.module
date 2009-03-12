@@ -111,7 +111,7 @@ function blockcache_alter_form_alter(&$form, $form_state, $form_id) {
         '#title' => t('Cache lifetime'),
         '#size' => 10,
         '#default_value' => variable_get('bc_life_'. $form['module']['#value'] . '_' . $form['delta']['#value'], ''),
-        '#description' => t('Lifetime (in seconds) of this item in the cache. How often is the content of this block refreshed? Leave blank to refresh automatically when new content is created.'),
+        '#description' => t('Lifetime (in seconds) of this item in the cache. How often is the content of this block refreshed? Leave blank to refresh automatically when new content is created or any other action happens (see underneath).'),
       );
 
       // Blockcache refresh.
@@ -140,7 +140,7 @@ function blockcache_alter_form_alter(&$form, $form_state, $form_id) {
         '#title' => t('Relation'),
        	'#options' => $node_types,
   			'#default_value' => variable_get('bc_relate_'. $form['module']['#value'] . '_' . $form['delta']['#value'], array()),
-        '#description' => t('Which node type should cause the block refresh?'),
+        '#description' => t('Which node type should cause the block refresh? When choosing user related actions, these options don \'t apply.'),
       );
     }
 
@@ -258,11 +258,11 @@ function blockcache_alter_user($op) {
     case 'insert':
     case 'update':
     case 'delete':
-      _blockcache_alter_cleanup('user');
+      _blockcache_alter_cleanup('user', 'user_actions');
       break;
     case 'login':
     case 'logout':
-      _blockcache_alter_cleanup('login');
+      _blockcache_alter_cleanup('login', 'user_actions');
       break;
   }
 }
@@ -271,32 +271,29 @@ function blockcache_alter_user($op) {
  * Cleanup cached blocks if necessary.
  *
  * @param string $type operation type.
- * @param string $relatenodetype Related node type (if available)
+ * @param string $relatednodetype Related node type (if available)
  */
-function _blockcache_alter_cleanup($type, $relatenodetype = NULL) {
+function _blockcache_alter_cleanup($type, $relatednodetype = FALSE) {
+  $info = array();
   $debug = variable_get('bca_debug', FALSE) && user_access('administer site configuration');
-  $result = db_query('SELECT * FROM {blocks}');
+  $result = db_query("SELECT module, delta FROM {blocks} WHERE status = '1'");
   while ($r = db_fetch_object($result)) {
     if (module_exists($r->module)) {
       $refresh = variable_get('bc_refresh_'. $r->module . '_' . $r->delta, array());
-      if ($refresh[$type]) { // @todo Throws notices on user login, fix this!
+      if (isset($refresh[$type])) {
         $relate = variable_get('bc_relate_'. $r->module . '_' . $r->delta, array());
-  			if ($relate[$relatenodetype]) {
-          $likes[] = 'cid LIKE "'. $r->module . ':' . $r->delta .'%"';
+  			if ($relate[$relatednodetype] != '0' || $relatednodetype == 'user_actions') {
           db_query("DELETE FROM {cache_block} WHERE cid like '%s'", $r->module . ':' . $r->delta . '%');
           if ($debug) {
-            $info[] = t('module: %mod, delta: %delta, life: %life', array('%mod' => $r->module, '%life' => $life, '%delta' => $r->delta));
+            $info[] = t('<br /> - module: %mod, delta: %delta, life: %life', array('%mod' => $r->module, '%life' => $life, '%delta' => $r->delta));
           }
         }
     	}
     }
   }
-  if (!empty($likes)) {
-    // Implode and put together a LIKE query.
-    $like = implode(' OR ', $likes);
-    if ($debug) {
-      drupal_set_message(t("Cleared block cache for ". implode(', ', $info)));
-    }
+  // Implode and put together a LIKE query.
+  if ($debug && !empty($info)) {
+    drupal_set_message(t("Cleared block cache for". implode('&nbsp;', $info)));
   }
 }
 
