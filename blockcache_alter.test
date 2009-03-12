@@ -142,10 +142,12 @@ class BlockCacheAlter extends DrupalWebTestCase {
     $this->assertEqual($this->_checkBlockSetting($block1['delta']), BLOCK_CACHE_GLOBAL, t('Cache set to global.'), t('Cache refreshment change.'));
     // Add lifetime if core patch is applied, expire time is checked
     // in block module and everything will be borked.
-    if (!empty($status)) {
-      $edit['bc_life'] = 50;
+    $edit2 = $edit;
+    if (empty($status)) {
+      $edit2['bc_life'] = 4;
+      variable_set('bca_corepatch', TRUE);
     }
-    $this->drupalPost('admin/build/block/configure/block/'. $block2['delta'], $edit, t('Save block'));
+    $this->drupalPost('admin/build/block/configure/block/'. $block2['delta'], $edit2, t('Save block'));
     $this->assertEqual($this->_checkBlockSetting($block2['delta']), BLOCK_CACHE_GLOBAL, t('Cache set to global.'), t('Cache refreshment change.'));
 
     // We should now have 2 cached blocks in cache_block table.
@@ -154,7 +156,7 @@ class BlockCacheAlter extends DrupalWebTestCase {
     $this->assertEqual($cache1->cid, 'block:1:garland', t('Cached block 1 found.'), t('Cache refreshment change.'));
     $this->assertEqual($cache2->cid, 'block:2:garland', t('Cached block 2 found.'), t('Cache refreshment change.'));
 
-    // sleep a few seconds (otherwhise timestamps will always be the same)
+    // Sleep a few seconds (otherwhise timestamps will always be the same)
     sleep(2);
 
     // Let's clear the cache for block 1, cache for block 2 should stay the same
@@ -164,7 +166,7 @@ class BlockCacheAlter extends DrupalWebTestCase {
     $cache3 = $this->_getRecordFromCacheBlockTable($block1['delta']);
     $cache4 = $this->_getRecordFromCacheBlockTable($block2['delta']);
     $this->assertNotEqual($cache1->created, $cache3->created, t('Block cache updated for block 1'), t('Cache refreshment change.'));
-    $this->assertNotEqual($cache2->created, $cache4->created, t('Block cache not updated for block 2'), t('Cache refreshment change.'));
+    $this->assertEqual($cache2->created, $cache4->created, t('Block cache not updated for block 2'), t('Cache refreshment change.'));
 
     // sleep a few seconds (otherwhise timestamps will always be the same)
     sleep(2);
