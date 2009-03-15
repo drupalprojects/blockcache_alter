@@ -73,7 +73,7 @@ seperated by comma. All blocks are cached that way.
 
 Support:
 --------
-Please use the issue queue available at http://drupal.org/project/imapulator to
+Please use the issue queue available at http://drupal.org/project/blockcache_alter to
 file support and feature requests, bugs etc. Be as descriptive as you can.
 
 Last updated:

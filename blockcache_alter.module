@@ -105,18 +105,34 @@ function blockcache_alter_form_alter(&$form, $form_state, $form_id) {
 
     // Show options underneath onl if coe patch is applied.
     if ($core_patch == TRUE) {
+
+      // Blockcache fieldset.
+      $form['cache']['option_1'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Cache refresh option 1: Cache lifetime'),
+        '#description' => t('Set a minimum cache lifetime (in seconds). Leave 0 or empty to use the second option.')
+      );
+
       // Blockcache lifetime.
-      $form['cache']['bc_life'] = array(
+      $form['cache']['option_1']['bc_life'] = array(
         '#type' => 'textfield',
         '#title' => t('Cache lifetime'),
         '#size' => 10,
         '#default_value' => variable_get('bc_life_'. $form['module']['#value'] . '_' . $form['delta']['#value'], ''),
-        '#description' => t('Lifetime (in seconds) of this item in the cache. How often is the content of this block refreshed? Leave blank to refresh automatically when new content is created or any other action happens (see underneath).'),
+      );
+
+      // Blockcache fieldset.
+      $form['cache']['option_2'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Cache refresh option 2: Drupal actions'),
+				'#description' => t('Refresh on certain actions in the Drupal system. When choosing node or comment action, you also need to specify on which node types it should refresh. Note that clicking any of these checkboxes will not have any effect if a minimum lifetime is set in option 1.'),
       );
 
       // Blockcache refresh.
-      $form['cache']['bc_refresh'] = array(
-        '#type' => 'checkboxes',
+      $form['cache']['option_2']['bc_refresh'] = array(
+        '#prefix' => '<div style="float: left;">',
+        '#suffix' => '</div>',
+      	'#type' => 'checkboxes',
         '#title' => t('Refresh when'),
         '#options' => array(
           'node' => t('A node is added/updated/deleted'),
@@ -134,14 +150,21 @@ function blockcache_alter_form_alter(&$form, $form_state, $form_id) {
   		  $node_types[$type->type] = $type->name;
   	  }
 
-      $form['cache']['bc_relate'] = array(
-        '#suffix' => '</div>',
-        '#type' => 'checkboxes',
+      $form['cache']['option_2']['bc_relate'] = array(
+        '#prefix' => '<div style="float: left; margin-left: 15px;">',
+        '#suffix' => '</div><div style="clear: both;"></div>',
+      	'#type' => 'checkboxes',
         '#title' => t('Relation'),
        	'#options' => $node_types,
   			'#default_value' => variable_get('bc_relate_'. $form['module']['#value'] . '_' . $form['delta']['#value'], array()),
-        '#description' => t('Which node type should cause the block refresh? When choosing user related actions, these options don \'t apply.'),
       );
+
+      // End div.
+      $form['cache']['enddiv'] = array(
+        '#type' => 'hidden',
+        '#suffix' => '</div>',
+      );
+
     }
 
     // Add our own submit handler and remove the default submit handler.
@@ -234,17 +257,17 @@ function blockcache_alter_nodeapi($node, $op) {
 function blockcache_alter_comment($comment, $op) {
   switch ($op) {
     case 'insert':
-    	$thiscnode = node_load($comment->nid);
+    	$thiscnode = node_load($comment['nid']);
     	$nodetype = $thiscnode->type;
       _blockcache_alter_cleanup('comment', $nodetype);
       break;
     case 'update':
-    	$thiscnode = node_load($comment->nid);
+    	$thiscnode = node_load($comment['nid']);
     	$aabb = $thiscnode->type;
       _blockcache_alter_cleanup('comment', $nodetype);
       break;
     case 'delete':
-    	$thiscnode = node_load($comment->nid);
+    	$thiscnode = node_load($comment['nid']);
     	$nodetype = $thiscnode->type;
       _blockcache_alter_cleanup('comment', $nodetype);
       break;
@@ -285,7 +308,7 @@ function _blockcache_alter_cleanup($type, $relatednodetype = FALSE) {
       $refresh = variable_get('bc_refresh_'. $r->module . '_' . $r->delta, array());
       if (isset($refresh[$type])) {
         $relate = variable_get('bc_relate_'. $r->module . '_' . $r->delta, array());
-  			if (is_array($relate) && $relate[$relatednodetype] === $relatednodetype) {
+  			if ($relatednodetype == 'user_actions' || (is_array($relate) && $relate[$relatednodetype] === $relatednodetype)) {
           db_query("DELETE FROM {cache_block} WHERE cid like '%s'", $r->module . ':' . $r->delta . '%');
           if ($debug) {
             $info[] = t('<br /> - module: %mod, delta: %delta', array('%mod' => $r->module, '%delta' => $r->delta));

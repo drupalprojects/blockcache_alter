@@ -25,7 +25,7 @@ class BlockCacheAlter extends DrupalWebTestCase {
     parent::setUp('blockcache_alter');
 
     // Create and login user
-    $admin_user = $this->drupalCreateUser(array('administer blocks', 'administer nodes'));
+    $admin_user = $this->drupalCreateUser(array('administer blocks', 'administer nodes', 'post comments', 'administer comments'));
     $this->drupalLogin($admin_user);
   }
 
@@ -156,7 +156,6 @@ class BlockCacheAlter extends DrupalWebTestCase {
     $this->assertEqual($cache1->cid, 'block:1:garland', t('Cached block 1 found.'), t('Cache refreshment change.'));
     $this->assertEqual($cache2->cid, 'block:2:garland', t('Cached block 2 found.'), t('Cache refreshment change.'));
 
-    // Sleep a few seconds (otherwhise timestamps will always be the same)
     sleep(2);
 
     // Let's clear the cache for block 1, cache for block 2 should stay the same
@@ -168,7 +167,6 @@ class BlockCacheAlter extends DrupalWebTestCase {
     $this->assertNotEqual($cache1->created, $cache3->created, t('Block cache updated for block 1'), t('Cache refreshment change.'));
     $this->assertEqual($cache2->created, $cache4->created, t('Block cache not updated for block 2'), t('Cache refreshment change.'));
 
-    // sleep a few seconds (otherwhise timestamps will always be the same)
     sleep(2);
 
     // Now let's update a block
@@ -201,27 +199,106 @@ class BlockCacheAlter extends DrupalWebTestCase {
       db_query("UPDATE {blocks} set status = 1, region = 'left' WHERE module = 'block' AND delta = '%s'", $block['delta']);
       $this->assertEqual($this->_checkBlockSetting($block['delta'], 'region'), 'left', 'Region is set to left for block 1', t('Extra functionality.'));
 
-      // Let's toggle test node actions, check node and page.
+      ///////////////////////
+      // Test node actions //
+      ///////////////////////
       $edit['cache_block'] = BLOCK_CACHE_GLOBAL;
       $edit["bc_refresh[node]"] = 'checked';
       $edit["bc_relate[page]"] = 'checked';
       $this->drupalPost('admin/build/block/configure/block/'. $block['delta'], $edit, t('Save block'));
       $cache1 = $this->_getRecordFromCacheBlockTable($block['delta']);
 
-      // sleep a few seconds (otherwhise timestamps will always be the same)
       sleep(2);
 
       // Create a page node, cache should be different.
       $page = $this->drupalCreateNode(array('type' => 'page', 'title' => 'page', 'body' => 'blah'));
       $this->drupalGet('node/'. $page->nid);
       $cache2 = $this->_getRecordFromCacheBlockTable($block['delta']);
-      $this->assertNotEqual($cache1->created, $cache2->created, t('Block cache updated for block 1'), t('Extra functionality.'));
+      $this->assertNotEqual($cache1->created, $cache2->created, t('Block cache updated for block 1'), t('Extra functionality: node.'));
 
       // create a story node, cache should be the same.
       $story = $this->drupalCreateNode(array('type' => 'story', 'title' => 'story', 'body' => 'blah'));
       $this->drupalGet('node/'. $story->nid);
       $cache3 = $this->_getRecordFromCacheBlockTable($block['delta']);
-      $this->assertEqual($cache2->created, $cache3->created, t('Block cache not updated for block 1'), t('Extra functionality.'));
+      $this->assertEqual($cache2->created, $cache3->created, t('Block cache not updated for block 1'), t('Extra functionality: node.'));
+
+      // Create new user, we have to surf to another page, but cache should be the same.
+      $new_user = $this->drupalCreateUser(array('administer site configuration'));
+      $this->drupalGet('user');
+      $cache4 = $this->_getRecordFromCacheBlockTable($block['delta']);
+      $this->assertEqual($cache3->created, $cache4->created, t('Block cache not updated for block 1.'), t('Extra functionality: node.'));
+
+
+      // Reset
+      $edit["bc_refresh[node]"] = '';
+
+      ///////////////////////
+      // Test user actions //
+      ///////////////////////
+      $edit["bc_refresh[user]"] = 'checked';
+      $this->drupalPost('admin/build/block/configure/block/'. $block['delta'], $edit, t('Save block'));
+      $cache1 = $this->_getRecordFromCacheBlockTable($block['delta']);
+
+      sleep(2);
+
+      // Create new user, we have to surf to another page so the block will be cached again.
+      $new_user = $this->drupalCreateUser(array('administer site configuration'));
+      $this->drupalGet('user');
+      $cache2 = $this->_getRecordFromCacheBlockTable($block['delta']);
+      $this->assertNotEqual($cache1->created, $cache2->created, t('Block cache updated for block 1.'), t('Extra functionality: user.'));
+
+      sleep(2);
+
+      // Update user, we have to surf to another page so the block will be cached again.
+      user_save($new_user, array());
+      $this->drupalGet('user');
+      $cache3 = $this->_getRecordFromCacheBlockTable($block['delta']);
+      $this->assertNotEqual($cache2->created, $cache3->created, t('Block cache updated for block 1.'), t('Extra functionality: user.'));
+
+      sleep(2);
+
+      // Delete user, we have to surf to another page so the block will be cached again.
+      user_delete(NULL, $new_user->uid);
+      $this->drupalGet('user');
+      $cache4 = $this->_getRecordFromCacheBlockTable($block['delta']);
+      $this->assertNotEqual($cache3->created, $cache4->created, t('Block cache updated for block 1.'), t('Extra functionality: user.'));
+
+      // create a story node, cache should be the same.
+      $story = $this->drupalCreateNode(array('type' => 'story', 'title' => 'story', 'body' => 'blah'));
+      $this->drupalGet('node/'. $story->nid);
+      $cache5 = $this->_getRecordFromCacheBlockTable($block['delta']);
+      $this->assertEqual($cache4->created, $cache5->created, t('Block cache not updated for block 1'), t('Extra functionality: user.'));
+
+      // Reset
+      $edit["bc_refresh[user]"] = '';
+
+      //////////////////////////
+      // Test comment actions //
+      //////////////////////////
+      $edit["bc_refresh[comment]"] = 'checked';
+      $edit["bc_relate[story]"] = 'checked';
+      $this->drupalPost('admin/build/block/configure/block/'. $block['delta'], $edit, t('Save block'));
+      $cache1 = $this->_getRecordFromCacheBlockTable($block['delta']);
+
+      // Create a story and a comment.
+      $story = $this->drupalCreateNode(array('type' => 'story', 'title' => 'story', 'body' => 'blah'));
+      $comment['nid'] = $story->nid;
+      $comment['uid'] = '0';
+      $comment['cid'] = '';
+      $comment['pid'] = '0';
+      $comment['format'] = '2';
+      $comment['subject'] = 'subject';
+      $comment['comment'] = 'comment';
+      comment_save($comment);
+      $out = $this->drupalGet('node/'. $story->nid);
+      $this->_debugHelper($out);
+      $cache2 = $this->_getRecordFromCacheBlockTable($block['delta']);
+      $this->assertNotEqual($cache1->created, $cache2->created, t('Block cache updated for block 1'), t('Extra functionality: comment.'));
+
+
+      // Reset
+      $edit["bc_refresh[comment]"] = '';
+      $edit["bc_relate[story]"] = '';
 
     }
   }
