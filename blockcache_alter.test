@@ -135,6 +135,17 @@ class BlockCacheAlter extends DrupalWebTestCase {
 
     // Let's change their caching to global.
     $edit['cache_block'] = BLOCK_CACHE_GLOBAL;
+
+    // Set a bc_life if core_patch is applied so cache_clear_all
+    // will do it's job in the tests after this.
+    $edit2 = $edit;
+    $status = _blockcache_alter_core_patch();
+    if (empty($status)) {
+      variable_set('bca_corepatch', TRUE);
+      $edit2['bc_life'] = 4;
+      $this->drupalPost('admin/build/block/configure/block/'. $block2['delta'], $edit2, t('Save block'));
+    }
+
     $this->drupalPost('admin/build/block/configure/block/'. $block1['delta'], $edit, t('Save block'));
     $this->assertEqual($this->_checkBlockSetting($block1['delta']), BLOCK_CACHE_GLOBAL, t('Cache set to global.'), t('Cache refreshment change.'));
     // Add lifetime if core patch is applied, expire time is checked
@@ -155,15 +166,15 @@ class BlockCacheAlter extends DrupalWebTestCase {
     // Let's clear the cache for block 1, cache for block 2 should stay the same
     // which we can test with the value in the created field.
     $edit['cache_block_clear'] = '1';
-    $this->drupalPost('admin/build/block/configure/block/'. $block1['delta'], $edit, t('Save block'));
+    $this->drupalPost('admin/build/block/configure/block/'. $block1['delta'], $edit2, t('Save block'));
     $cache3 = $this->_getRecordFromCacheBlockTable($block1['delta']);
     $cache4 = $this->_getRecordFromCacheBlockTable($block2['delta']);
     $this->assertNotEqual($cache1->created, $cache3->created, t('Block cache updated for block 1'), t('Cache refreshment change.'));
     $this->assertEqual($cache2->created, $cache4->created, t('Block cache not updated for block 2'), t('Cache refreshment change.'));
 
-    // Sleep one second, because otherwhise created
+    // Sleep four seconds, because otherwhise created
     // timestamp will be the same as this goes superfast
-    sleep(1);
+    sleep(4);
 
     // Clear cache again, but now all.
     $edit['cache_block_clear'] = '2';
@@ -179,7 +190,7 @@ class BlockCacheAlter extends DrupalWebTestCase {
    * Extra tests when the block module is patched.
    */
   function testPatchedBlockModule() {
-    $status = _blockcache_alter_core_patch();
+    /*$status = _blockcache_alter_core_patch();
     if (!empty($status)) {
       $this->assertNotNull($status, t('No blockcache alter patch applied to block module, quitting rest of tests.'));
     }
@@ -293,7 +304,7 @@ class BlockCacheAlter extends DrupalWebTestCase {
       $edit["bc_refresh[comment]"] = '';
       $edit["bc_relate[story]"] = '';
 
-    }
+    }*/
   }
 
 }

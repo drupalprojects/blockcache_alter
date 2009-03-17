@@ -1,14 +1,21 @@
 --- block.module.orig	2009-03-08 19:34:38.000000000 +0100
-+++ block.module	2009-03-15 22:12:47.000000000 +0100
-@@ -466,13 +466,24 @@
++++ block.module	2009-03-18 00:06:58.000000000 +0100
+@@ -454,6 +454,7 @@
+     $blocks[$region] = array();
+   }
+ 
++  $time = time();
+   foreach ($blocks[$region] as $key => $block) {
+     // Render the block content if it has not been created already.
+     if (!isset($block->content)) {
+@@ -466,13 +467,23 @@
            // Try fetching the block from cache. Block caching is not compatible with
            // node_access modules. We also preserve the submission of forms in blocks,
            // by fetching from cache only if the request method is 'GET'.
 -          if (!count(module_implements('node_grants')) && $_SERVER['REQUEST_METHOD'] == 'GET' && ($cid = _block_get_cache_id($block)) && ($cache = cache_get($cid, 'cache_block'))) {
 +          if (!count(module_implements('node_grants')) && $_SERVER['REQUEST_METHOD'] == 'GET' &&
 +            ($cid = _block_get_cache_id($block)) && ($cache = cache_get($cid, 'cache_block')) &&
-+            ($cache->expire == CACHE_TEMPORARY || $cache->expire > time())
-+            ) {
++            (_blockcache_alter_check_expire($cache, $time))) {
              $array = $cache->data;
            }
            else {

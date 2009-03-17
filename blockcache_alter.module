@@ -208,9 +208,6 @@ function blockcache_alter_save_settings($form, &$form_state) {
     }
 
     if ($core_patch == TRUE) {
-      // Update block cache expire settings (with core patch).
-      db_query("UPDATE {cache_block} set expire = %d WHERE cid like '%s'", $form_state['values']['bc_life'] + time(), $form_state['values']['module'] . ':' . $form_state['values']['delta'] . '%');
-
       // Remember block expire time for the future (with core patch)
       variable_set('bc_life_'. $form['module']['#value'] . '_' . $form['delta']['#value'], $form_state['values']['bc_life']);
       variable_set('bc_refresh_'. $form['module']['#value'] . '_' . $form['delta']['#value'], $form_state['values']['bc_refresh']);
@@ -288,6 +285,23 @@ function blockcache_alter_user($op) {
       _blockcache_alter_cleanup('login', 'user_actions');
       break;
   }
+}
+
+/**
+ * Helper function to check if this block should be refreshed or not.
+ *
+ * @param stdClass $cache A complete cache object.
+ * @param int $time The current timestamp.
+ * @return FALSE or TRUE
+ */
+function _blockcache_alter_check_expire($cache, $time) {
+  if ($cache->expire == CACHE_PERMANENT) {
+    return TRUE;
+  }
+  if ($cache->expire > $time) {
+    return TRUE;
+  }
+  return FALSE;
 }
 
 /**
