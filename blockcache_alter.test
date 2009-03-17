@@ -125,9 +125,6 @@ class BlockCacheAlter extends DrupalWebTestCase {
     // Turn on block caching.
     variable_set('block_cache', CACHE_NORMAL);
 
-    // Check core patch.
-    $status = _blockcache_alter_core_patch();
-
     // Create two blocks and assign them to regions.
     $block1 = $this->_createTestBlock();
     $block2 = $this->_createTestBlock();
@@ -142,12 +139,7 @@ class BlockCacheAlter extends DrupalWebTestCase {
     $this->assertEqual($this->_checkBlockSetting($block1['delta']), BLOCK_CACHE_GLOBAL, t('Cache set to global.'), t('Cache refreshment change.'));
     // Add lifetime if core patch is applied, expire time is checked
     // in block module and everything will be borked.
-    $edit2 = $edit;
-    if (empty($status)) {
-      $edit2['bc_life'] = 4;
-      variable_set('bca_corepatch', TRUE);
-    }
-    $this->drupalPost('admin/build/block/configure/block/'. $block2['delta'], $edit2, t('Save block'));
+    $this->drupalPost('admin/build/block/configure/block/'. $block2['delta'], $edit, t('Save block'));
     $this->assertEqual($this->_checkBlockSetting($block2['delta']), BLOCK_CACHE_GLOBAL, t('Cache set to global.'), t('Cache refreshment change.'));
 
     // We should now have 2 cached blocks in cache_block table.
@@ -156,7 +148,9 @@ class BlockCacheAlter extends DrupalWebTestCase {
     $this->assertEqual($cache1->cid, 'block:1:garland', t('Cached block 1 found.'), t('Cache refreshment change.'));
     $this->assertEqual($cache2->cid, 'block:2:garland', t('Cached block 2 found.'), t('Cache refreshment change.'));
 
-    sleep(2);
+    // Sleep one second, because otherwhise created
+    // timestamp will be the same as this goes superfast
+    sleep(1);
 
     // Let's clear the cache for block 1, cache for block 2 should stay the same
     // which we can test with the value in the created field.
@@ -167,10 +161,11 @@ class BlockCacheAlter extends DrupalWebTestCase {
     $this->assertNotEqual($cache1->created, $cache3->created, t('Block cache updated for block 1'), t('Cache refreshment change.'));
     $this->assertEqual($cache2->created, $cache4->created, t('Block cache not updated for block 2'), t('Cache refreshment change.'));
 
-    sleep(2);
+    // Sleep one second, because otherwhise created
+    // timestamp will be the same as this goes superfast
+    sleep(1);
 
-    // Now let's update a block
-    // which we can test with the value in the created field.
+    // Clear cache again, but now all.
     $edit['cache_block_clear'] = '2';
     $this->drupalPost('admin/build/block/configure/block/'. $block1['delta'], $edit, t('Save block'));
     $cache5 = $this->_getRecordFromCacheBlockTable($block1['delta']);
@@ -291,10 +286,8 @@ class BlockCacheAlter extends DrupalWebTestCase {
       $comment['comment'] = 'comment';
       comment_save($comment);
       $out = $this->drupalGet('node/'. $story->nid);
-      $this->_debugHelper($out);
       $cache2 = $this->_getRecordFromCacheBlockTable($block['delta']);
       $this->assertNotEqual($cache1->created, $cache2->created, t('Block cache updated for block 1'), t('Extra functionality: comment.'));
-
 
       // Reset
       $edit["bc_refresh[comment]"] = '';

@@ -34,7 +34,7 @@ Installation:
 2. Go to "administer -> build -> modules" and enable the module.
 
 3. Apply one of the 2 core patches if you like. Copy them to the block
-   modules directory of your Drupal installation and run following command:
+   module directory of your Drupal installation and run following command:
    
    patch -p0 < filename.
    

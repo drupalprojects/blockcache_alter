@@ -208,9 +208,7 @@ function blockcache_alter_save_settings($form, &$form_state) {
     }
 
     if ($core_patch == TRUE) {
-      // Update block cache expire settings (with core patch)
-      // This fails if there is no cache entry yet and when doing a new
-      // node_save everything borkes due to cache_clear_all
+      // Update block cache expire settings (with core patch).
       db_query("UPDATE {cache_block} set expire = %d WHERE cid like '%s'", $form_state['values']['bc_life'] + time(), $form_state['values']['module'] . ':' . $form_state['values']['delta'] . '%');
 
       // Remember block expire time for the future (with core patch)
