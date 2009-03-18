@@ -190,7 +190,7 @@ class BlockCacheAlter extends DrupalWebTestCase {
    * Extra tests when the block module is patched.
    */
   function testPatchedBlockModule() {
-    /*$status = _blockcache_alter_core_patch();
+    $status = _blockcache_alter_core_patch();
     if (!empty($status)) {
       $this->assertNotNull($status, t('No blockcache alter patch applied to block module, quitting rest of tests.'));
     }
@@ -214,33 +214,33 @@ class BlockCacheAlter extends DrupalWebTestCase {
       $this->drupalPost('admin/build/block/configure/block/'. $block['delta'], $edit, t('Save block'));
       $cache1 = $this->_getRecordFromCacheBlockTable($block['delta']);
 
-      sleep(2);
-
       // Create a page node, cache should be different.
+      sleep(1);
       $page = $this->drupalCreateNode(array('type' => 'page', 'title' => 'page', 'body' => 'blah'));
       $this->drupalGet('node/'. $page->nid);
       $cache2 = $this->_getRecordFromCacheBlockTable($block['delta']);
       $this->assertNotEqual($cache1->created, $cache2->created, t('Block cache updated for block 1'), t('Extra functionality: node.'));
 
       // create a story node, cache should be the same.
+      sleep(1);
       $story = $this->drupalCreateNode(array('type' => 'story', 'title' => 'story', 'body' => 'blah'));
       $this->drupalGet('node/'. $story->nid);
       $cache3 = $this->_getRecordFromCacheBlockTable($block['delta']);
       $this->assertEqual($cache2->created, $cache3->created, t('Block cache not updated for block 1'), t('Extra functionality: node.'));
 
       // Create new user, we have to surf to another page, but cache should be the same.
+      sleep(1);
       $new_user = $this->drupalCreateUser(array('administer site configuration'));
       $this->drupalGet('user');
       $cache4 = $this->_getRecordFromCacheBlockTable($block['delta']);
       $this->assertEqual($cache3->created, $cache4->created, t('Block cache not updated for block 1.'), t('Extra functionality: node.'));
 
-
       // Reset
       $edit["bc_refresh[node]"] = '';
 
-      ///////////////////////
-      // Test user actions //
-      ///////////////////////
+      ////////////////////////////
+      // Test user edit actions //
+      ////////////////////////////
       $edit["bc_refresh[user]"] = 'checked';
       $this->drupalPost('admin/build/block/configure/block/'. $block['delta'], $edit, t('Save block'));
       $cache1 = $this->_getRecordFromCacheBlockTable($block['delta']);
@@ -296,6 +296,9 @@ class BlockCacheAlter extends DrupalWebTestCase {
       $comment['subject'] = 'subject';
       $comment['comment'] = 'comment';
       comment_save($comment);
+
+      sleep(1);
+
       $out = $this->drupalGet('node/'. $story->nid);
       $cache2 = $this->_getRecordFromCacheBlockTable($block['delta']);
       $this->assertNotEqual($cache1->created, $cache2->created, t('Block cache updated for block 1'), t('Extra functionality: comment.'));
@@ -304,7 +307,7 @@ class BlockCacheAlter extends DrupalWebTestCase {
       $edit["bc_refresh[comment]"] = '';
       $edit["bc_relate[story]"] = '';
 
-    }*/
+    }
   }
 
 }
