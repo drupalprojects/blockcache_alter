@@ -208,10 +208,20 @@ function blockcache_alter_save_settings($form, &$form_state) {
     }
 
     if ($core_patch == TRUE) {
-      // Remember block expire time for the future (with core patch)
-      variable_set('bc_life_'. $form['module']['#value'] . '_' . $form['delta']['#value'], $form_state['values']['bc_life']);
-      variable_set('bc_refresh_'. $form['module']['#value'] . '_' . $form['delta']['#value'], $form_state['values']['bc_refresh']);
-      variable_set('bc_relate_'. $form['module']['#value'] . '_' . $form['delta']['#value'], $form_state['values']['bc_relate']);
+      // Remove old variables to avoid clutter in the variable table.
+      db_query("DELETE FROM {variable} WHERE name IN ('%s', '%s', '%s')",
+        'bc_life_'. $form['module']['#value'] . '_' . $form['delta']['#value'],
+        'bc_refresh_'. $form['module']['#value'] . '_' . $form['delta']['#value'],
+        'bc_relate_'. $form['module']['#value'] . '_' . $form['delta']['#value']
+      );
+      // Remember block expire time or refresh actions for the future (with core patch)
+      if (!empty($form_state['values']['bc_life'])) {
+        variable_set('bc_life_'. $form['module']['#value'] . '_' . $form['delta']['#value'], $form_state['values']['bc_life']);
+      }
+      else {
+        variable_set('bc_refresh_'. $form['module']['#value'] . '_' . $form['delta']['#value'], $form_state['values']['bc_refresh']);
+        variable_set('bc_relate_'. $form['module']['#value'] . '_' . $form['delta']['#value'], $form_state['values']['bc_relate']);
+      }
     }
 
     // Redirect.
@@ -231,6 +241,23 @@ function _blockcache_alter_core_patch() {
     $status = '';
   }
   return $status;
+}
+
+/**
+ * Helper function to check if this block should be refreshed or not.
+ *
+ * @param stdClass $cache A complete cache object.
+ * @param int $time The current timestamp.
+ * @return FALSE or TRUE
+ */
+function _blockcache_alter_check_expire($cache, $time) {
+  if ($cache->expire == CACHE_PERMANENT) {
+    return TRUE;
+  }
+  if ($cache->expire > $time) {
+    return TRUE;
+  }
+  return FALSE;
 }
 
 /**
@@ -285,23 +312,6 @@ function blockcache_alter_user($op) {
       _blockcache_alter_cleanup('login', 'user_actions');
       break;
   }
-}
-
-/**
- * Helper function to check if this block should be refreshed or not.
- *
- * @param stdClass $cache A complete cache object.
- * @param int $time The current timestamp.
- * @return FALSE or TRUE
- */
-function _blockcache_alter_check_expire($cache, $time) {
-  if ($cache->expire == CACHE_PERMANENT) {
-    return TRUE;
-  }
-  if ($cache->expire > $time) {
-    return TRUE;
-  }
-  return FALSE;
 }
 
 /**

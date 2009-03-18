@@ -23,10 +23,6 @@ class BlockCacheAlter extends DrupalWebTestCase {
    */
   function setUp() {
     parent::setUp('blockcache_alter');
-
-    // Create and login user
-    $admin_user = $this->drupalCreateUser(array('administer blocks', 'administer nodes', 'post comments', 'administer comments'));
-    $this->drupalLogin($admin_user);
   }
 
   /**
@@ -107,6 +103,9 @@ class BlockCacheAlter extends DrupalWebTestCase {
    * Test simple cache changes.
    */
   function testSimpleCacheChanges() {
+    $admin_user = $this->drupalCreateUser(array('administer blocks', 'administer nodes', 'post comments', 'administer comments'));
+    $this->drupalLogin($admin_user);
+
     $edit = array();
     $block = $this->_createTestBlock();
 
@@ -122,6 +121,9 @@ class BlockCacheAlter extends DrupalWebTestCase {
    * Test simple cache changes with clear cache option (only block or page).
    */
   function testSimpleCacheRefreshments() {
+    $admin_user = $this->drupalCreateUser(array('administer blocks', 'administer nodes', 'post comments', 'administer comments'));
+    $this->drupalLogin($admin_user);
+
     // Turn on block caching.
     variable_set('block_cache', CACHE_NORMAL);
 
@@ -190,11 +192,16 @@ class BlockCacheAlter extends DrupalWebTestCase {
    * Extra tests when the block module is patched.
    */
   function testPatchedBlockModule() {
+
     $status = _blockcache_alter_core_patch();
     if (!empty($status)) {
       $this->assertNotNull($status, t('No blockcache alter patch applied to block module, quitting rest of tests.'));
     }
     else {
+      // Create and login user
+      $admin_user = $this->drupalCreateUser(array('administer blocks', 'administer nodes', 'post comments', 'administer comments'));
+      $this->drupalLogin($admin_user);
+
       // Core patch applied, set the core patch variable and turn on block caching.
       variable_set('block_cache', CACHE_NORMAL);
       variable_set('bca_corepatch', TRUE);
@@ -236,7 +243,8 @@ class BlockCacheAlter extends DrupalWebTestCase {
       $this->assertEqual($cache3->created, $cache4->created, t('Block cache not updated for block 1.'), t('Extra functionality: node.'));
 
       // Reset
-      $edit["bc_refresh[node]"] = '';
+      $edit["bc_refresh[node]"] = FALSE;
+      $edit["bc_relate[page]"] = FALSE;
 
       ////////////////////////////
       // Test user edit actions //
@@ -270,13 +278,14 @@ class BlockCacheAlter extends DrupalWebTestCase {
       $this->assertNotEqual($cache3->created, $cache4->created, t('Block cache updated for block 1.'), t('Extra functionality: user.'));
 
       // create a story node, cache should be the same.
+      sleep(1);
       $story = $this->drupalCreateNode(array('type' => 'story', 'title' => 'story', 'body' => 'blah'));
       $this->drupalGet('node/'. $story->nid);
       $cache5 = $this->_getRecordFromCacheBlockTable($block['delta']);
       $this->assertEqual($cache4->created, $cache5->created, t('Block cache not updated for block 1'), t('Extra functionality: user.'));
 
       // Reset
-      $edit["bc_refresh[user]"] = '';
+      $edit["bc_refresh[user]"] = FALSE;
 
       //////////////////////////
       // Test comment actions //
@@ -304,8 +313,56 @@ class BlockCacheAlter extends DrupalWebTestCase {
       $this->assertNotEqual($cache1->created, $cache2->created, t('Block cache updated for block 1'), t('Extra functionality: comment.'));
 
       // Reset
-      $edit["bc_refresh[comment]"] = '';
-      $edit["bc_relate[story]"] = '';
+      $edit["bc_refresh[comment]"] = FALSE;
+      $edit["bc_relate[story]"] = FALSE;
+
+      ////////////////////////////////////////
+      // Test user login and logout actions //
+      ////////////////////////////////////////
+      $edit["bc_refresh[login]"] = 'checked';
+      $this->drupalPost('admin/build/block/configure/block/'. $block['delta'], $edit, t('Save block'));
+      $cache1 = $this->_getRecordFromCacheBlockTable($block['delta']);
+
+      // Logout user and cache should be different
+      sleep(1);
+      $this->drupalLogout();
+      $this->drupalGet('user/login');
+      $cache2 = $this->_getRecordFromCacheBlockTable($block['delta']);
+      $this->assertNotEqual($cache1->created, $cache2->created, t('Block cache updated for block 1'), t('Extra functionality: login.'));
+
+      // Login again and cache should be different
+      sleep(1);
+      $this->drupalLogin($admin_user);
+      $cache2 = $this->_getRecordFromCacheBlockTable($block['delta']);
+      $this->assertNotEqual($cache1->created, $cache2->created, t('Block cache updated for block 1'), t('Extra functionality: login.'));
+
+      // Create a page, cache should be the same
+      sleep(1);
+      $page = $this->drupalCreateNode(array('type' => 'page', 'title' => 'page', 'body' => 'blah'));
+      $this->drupalGet('node/'. $page->nid);
+      $cache3 = $this->_getRecordFromCacheBlockTable($block['delta']);
+      $this->assertEqual($cache2->created, $cache3->created, t('Block cache not updated for block 1'), t('Extra functionality: login.'));
+
+      ///////////////////////////////
+      // Play with bc_life seconds //
+      ///////////////////////////////
+      $edit["bc_life"] = '5';
+      $this->drupalPost('admin/build/block/configure/block/'. $block['delta'], $edit, t('Save block'));
+      $this->drupalGet('user');
+      $cache1 = $this->_getRecordFromCacheBlockTable($block['delta']);
+
+      // Sleep 3 seconds, visit user page, cache should be the same
+      sleep(3);
+      $this->drupalGet('user');
+      $cache2 = $this->_getRecordFromCacheBlockTable($block['delta']);
+      $this->assertEqual($cache1->created, $cache2->created, t('Block cache not updated for block 1'), t('Extra functionality: lifetime.'));
+
+
+      // Sleep 3 more seconds, revisit user page and cache should be changed.
+      sleep(3);
+      $this->drupalGet('user');
+      $cache3 = $this->_getRecordFromCacheBlockTable($block['delta']);
+      $this->assertNotEqual($cache2->created, $cache3->created, t('Block cache updated for block 1'), t('Extra functionality: lifetime.'));
 
     }
   }
