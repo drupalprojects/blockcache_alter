@@ -207,6 +207,7 @@ function blockcache_alter_save_settings($form, &$form_state) {
         break;
     }
 
+    // Store extra variables if core patch is applied.
     if ($core_patch == TRUE) {
       // Remove old variables to avoid clutter in the variable table.
       db_query("DELETE FROM {variable} WHERE name IN ('%s', '%s', '%s')",
@@ -214,7 +215,7 @@ function blockcache_alter_save_settings($form, &$form_state) {
         'bc_refresh_'. $form['module']['#value'] . '_' . $form['delta']['#value'],
         'bc_relate_'. $form['module']['#value'] . '_' . $form['delta']['#value']
       );
-      // Remember block expire time or refresh actions for the future (with core patch)
+      // Remember block expire time or refresh actions for the future.
       if (!empty($form_state['values']['bc_life'])) {
         variable_set('bc_life_'. $form['module']['#value'] . '_' . $form['delta']['#value'], $form_state['values']['bc_life']);
       }
@@ -289,7 +290,7 @@ function blockcache_alter_comment($comment, $op) {
       _blockcache_alter_cleanup('comment', $nodetype);
       break;
     case 'delete':
-    	$thiscnode = node_load($comment['nid']);
+    	$thiscnode = node_load($comment->nid);
     	$nodetype = $thiscnode->type;
       _blockcache_alter_cleanup('comment', $nodetype);
       break;
