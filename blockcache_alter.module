@@ -46,10 +46,11 @@ function blockcache_alter_admin_settings() {
  * Implementation of hook_form_alter().
  */
 function blockcache_alter_form_alter(&$form, $form_state, $form_id) {
+  // Add caching fieldset to the block configure page.
   if ($form_id == 'block_admin_configure') {
 
     // Add some funky hide and show javascript.
-    drupal_add_js(drupal_get_path('module', 'blockcache_alter').'/blockcache_alter.js', 'module');
+    drupal_add_js(drupal_get_path('module', 'blockcache_alter') .'/blockcache_alter.js', 'module');
 
     // Core patch applied or not.
     $core_patch = variable_get('bca_corepatch', 0);
@@ -95,7 +96,7 @@ function blockcache_alter_form_alter(&$form, $form_state, $form_id) {
     // Cache clearing option after saving this block.
     $display = ($default_value == BLOCK_NO_CACHE) ? 'none' : 'block';
     $form['cache']['cache_block_clear'] = array(
-    	'#type' => 'radios',
+      '#type' => 'radios',
       '#title' => t('Clear cache'),
       '#prefix' => '<div id="blockcache_alter_wrapper" style="display: '. $display .';">',
       '#description' => t('Select the appropriate cache clearing action after saving this block.'),
@@ -103,7 +104,7 @@ function blockcache_alter_form_alter(&$form, $form_state, $form_id) {
       '#default_value' => 1,
     );
 
-    // Show options underneath onl if coe patch is applied.
+    // Show options underneath onl if core patch is applied.
     if ($core_patch == TRUE) {
 
       // Blockcache fieldset.
@@ -118,21 +119,21 @@ function blockcache_alter_form_alter(&$form, $form_state, $form_id) {
         '#type' => 'textfield',
         '#title' => t('Cache lifetime'),
         '#size' => 10,
-        '#default_value' => variable_get('bc_life_'. $form['module']['#value'] . '_' . $form['delta']['#value'], ''),
+        '#default_value' => variable_get('bc_life_'. $form['module']['#value'] .'_'. $form['delta']['#value'], ''),
       );
 
       // Blockcache fieldset.
       $form['cache']['option_2'] = array(
         '#type' => 'fieldset',
         '#title' => t('Cache refresh option 2: Drupal actions'),
-				'#description' => t('Refresh on certain actions in the Drupal system. When choosing node or comment action, you also need to specify on which node types it should refresh. Note that clicking any of these checkboxes will not have any effect if a minimum lifetime is set in option 1.'),
+         '#description' => t('Refresh on certain actions in the Drupal system. When choosing node or comment action, you also need to specify on which node types it should refresh. Note that clicking any of these checkboxes will not have any effect if a minimum lifetime is set in option 1.'),
       );
 
       // Blockcache refresh.
       $form['cache']['option_2']['bc_refresh'] = array(
         '#prefix' => '<div style="float: left;">',
         '#suffix' => '</div>',
-      	'#type' => 'checkboxes',
+        '#type' => 'checkboxes',
         '#title' => t('Refresh when'),
         '#options' => array(
           'node' => t('A node is added/updated/deleted'),
@@ -140,23 +141,23 @@ function blockcache_alter_form_alter(&$form, $form_state, $form_id) {
           'user' => t('A user is added/updated/deleted'),
           'login' => t('A user logs in our out'),
         ),
-  			'#default_value' => variable_get('bc_refresh_'. $form['module']['#value'] . '_' . $form['delta']['#value'], array()),
+        '#default_value' => variable_get('bc_refresh_'. $form['module']['#value'] .'_'. $form['delta']['#value'], array()),
       );
 
       // Associate with node types.
       $node_types = array();
-  	  $types = node_get_types('types');
-  	  foreach ($types as $type) {
-  		  $node_types[$type->type] = $type->name;
-  	  }
+      $types = node_get_types('types');
+      foreach ($types as $type) {
+        $node_types[$type->type] = $type->name;
+      }
 
       $form['cache']['option_2']['bc_relate'] = array(
         '#prefix' => '<div style="float: left; margin-left: 15px;">',
         '#suffix' => '</div><div style="clear: both;"></div>',
-      	'#type' => 'checkboxes',
+        '#type' => 'checkboxes',
         '#title' => t('Relation'),
-       	'#options' => $node_types,
-  			'#default_value' => variable_get('bc_relate_'. $form['module']['#value'] . '_' . $form['delta']['#value'], array()),
+        '#options' => $node_types,
+        '#default_value' => variable_get('bc_relate_'. $form['module']['#value'] .'_'. $form['delta']['#value'], array()),
       );
 
       // End div.
@@ -172,6 +173,21 @@ function blockcache_alter_form_alter(&$form, $form_state, $form_id) {
     $form['submit']['#weight'] = 2;
     $form['#submit'][] = 'blockcache_alter_save_settings';
 
+  }
+
+  // Alter the performance settings page: remove the #disabled key from the block_cache form completely
+  // and add a warning message instead to warn the user that block caching won't work when one
+  // at least on module implements node_grants and blockcache_alter_no_node_grants is not applied.
+  // Note, again, we don't check which patch is applied, that's up to the developer.
+  if ($form_id == 'system_performance_settings') {
+    $node_grants = $form['block_cache']['block_cache']['#disabled'];
+    $form['block_cache']['block_cache']['#disabled'] = FALSE;
+    if ($node_grants == TRUE) {
+      $form['block_cache']['block_cache']['#description'] = t('There are modules implementing node grants. If you want block caching to work, you need to apply the "blockcache_alter_no_node_grants.patch"');
+    }
+    else {
+      $form['block_cache']['block_cache']['#description'] = '';
+    }
   }
 }
 
@@ -211,17 +227,17 @@ function blockcache_alter_save_settings($form, &$form_state) {
     if ($core_patch == TRUE) {
       // Remove old variables to avoid clutter in the variable table.
       db_query("DELETE FROM {variable} WHERE name IN ('%s', '%s', '%s')",
-        'bc_life_'. $form['module']['#value'] . '_' . $form['delta']['#value'],
-        'bc_refresh_'. $form['module']['#value'] . '_' . $form['delta']['#value'],
-        'bc_relate_'. $form['module']['#value'] . '_' . $form['delta']['#value']
+        'bc_life_'. $form['module']['#value'] .'_'. $form['delta']['#value'],
+        'bc_refresh_'. $form['module']['#value'] .'_'. $form['delta']['#value'],
+        'bc_relate_'. $form['module']['#value'] .'_'. $form['delta']['#value']
       );
       // Remember block expire time or refresh actions for the future.
       if (!empty($form_state['values']['bc_life'])) {
-        variable_set('bc_life_'. $form['module']['#value'] . '_' . $form['delta']['#value'], $form_state['values']['bc_life']);
+        variable_set('bc_life_'. $form['module']['#value'] .'_'. $form['delta']['#value'], $form_state['values']['bc_life']);
       }
       else {
-        variable_set('bc_refresh_'. $form['module']['#value'] . '_' . $form['delta']['#value'], $form_state['values']['bc_refresh']);
-        variable_set('bc_relate_'. $form['module']['#value'] . '_' . $form['delta']['#value'], $form_state['values']['bc_relate']);
+        variable_set('bc_refresh_'. $form['module']['#value'] .'_'. $form['delta']['#value'], $form_state['values']['bc_refresh']);
+        variable_set('bc_relate_'. $form['module']['#value'] .'_'. $form['delta']['#value'], $form_state['values']['bc_relate']);
       }
     }
 
@@ -233,6 +249,7 @@ function blockcache_alter_save_settings($form, &$form_state) {
 
 /**
  * Helper function to check if a blockcache alter patch is found.
+ * Note: it doesn't check which patch is applied.
  */
 function _blockcache_alter_core_patch() {
   $status = 'not';
@@ -262,7 +279,7 @@ function _blockcache_alter_check_expire($cache, $time) {
 }
 
 /**
- * Implemenation of hook_nodeapi().
+ * Implementation of hook_nodeapi().
  */
 function blockcache_alter_nodeapi($node, $op) {
   switch ($op) {
@@ -280,18 +297,18 @@ function blockcache_alter_nodeapi($node, $op) {
 function blockcache_alter_comment($comment, $op) {
   switch ($op) {
     case 'insert':
-    	$thiscnode = node_load($comment['nid']);
-    	$nodetype = $thiscnode->type;
+      $thiscnode = node_load($comment['nid']);
+      $nodetype = $thiscnode->type;
       _blockcache_alter_cleanup('comment', $nodetype);
       break;
     case 'update':
-    	$thiscnode = node_load($comment['nid']);
-    	$aabb = $thiscnode->type;
+      $thiscnode = node_load($comment['nid']);
+      $aabb = $thiscnode->type;
       _blockcache_alter_cleanup('comment', $nodetype);
       break;
     case 'delete':
-    	$thiscnode = node_load($comment->nid);
-    	$nodetype = $thiscnode->type;
+      $thiscnode = node_load($comment->nid);
+      $nodetype = $thiscnode->type;
       _blockcache_alter_cleanup('comment', $nodetype);
       break;
 
@@ -325,19 +342,19 @@ function _blockcache_alter_cleanup($type, $relatednodetype = FALSE) {
   $info = array();
   $time = time();
   $debug = variable_get('bca_debug', FALSE) && user_access('administer site configuration');
-  $result = db_query("SELECT module, delta FROM {blocks} WHERE status = '1' AND cache != '-1'");
+  $result = db_query("SELECT module, delta FROM {blocks} WHERE status = '1' AND cache <> '-1'");
   while ($r = db_fetch_object($result)) {
     if (module_exists($r->module)) {
-      $refresh = variable_get('bc_refresh_'. $r->module . '_' . $r->delta, array());
+      $refresh = variable_get('bc_refresh_'. $r->module .'_'. $r->delta, array());
       if ($refresh[$type] === $type) {
-        $relate = variable_get('bc_relate_'. $r->module . '_' . $r->delta, array());
-  			if ($relatednodetype == 'user_actions' || (is_array($relate) && $relate[$relatednodetype] === $relatednodetype)) {
-          db_query("DELETE FROM {cache_block} WHERE cid like '%s'", $r->module . ':' . $r->delta . '%');
+        $relate = variable_get('bc_relate_'. $r->module .'_'. $r->delta, array());
+        if ($relatednodetype == 'user_actions' || (is_array($relate) && $relate[$relatednodetype] === $relatednodetype)) {
+          db_query("DELETE FROM {cache_block} WHERE cid like '%s'", $r->module .':'. $r->delta .'%');
           if ($debug) {
             $info[] = t('<br /> - module: %mod, delta: %delta', array('%mod' => $r->module, '%delta' => $r->delta));
           }
         }
-    	}
+      }
     }
   }
   // Implode and put together a LIKE query.
@@ -372,7 +389,7 @@ function blockcache_alter_block_view($delta) {
   $d = explode(",", $delta);
   $module = $d[0];
   $delta = $d[1];
-  $cid = _blockcache_alter_get_cache_id($module,$delta);
+  $cid = _blockcache_alter_get_cache_id($module, $delta);
 
   if (($cid) && ($cache = cache_get($cid, 'cache_block'))) {
     $array = $cache->data;
@@ -380,12 +397,12 @@ function blockcache_alter_block_view($delta) {
   else {
     $array = module_invoke($module, 'block', 'view', $delta);
     if (isset($cid)) {
-      $blocklife = variable_get('bc_life_' . $module . '_' . $delta, '');
-	  	$blocklife = (int)$blocklife + time();
+      $blocklife = variable_get('bc_life_'. $module .'_'. $delta, '');
+      $blocklife = (int) $blocklife + time();
       cache_set($cid, $array, 'cache_block', $blocklife);
-    	if ($debug = variable_get('bca_debug', FALSE) && user_access('administer site configuration')) {
-	      drupal_set_message('block re-cached: ' . $block->title . '_' . $module . '_' . $delta . '_' . $blocklife . '_' . time());
-		  }
+      if ($debug = variable_get('bca_debug', FALSE) && user_access('administer site configuration')) {
+        drupal_set_message('block re-cached: '. $block->title .'_'. $module .'_'. $delta .'_'. $blocklife .'_'. time());
+      }
     }
   }
   return $array;
@@ -394,7 +411,7 @@ function blockcache_alter_block_view($delta) {
 /**
  * Get cid for a block.
  */
-function _blockcache_alter_get_cache_id($module,$delta) {
+function _blockcache_alter_get_cache_id($module, $delta) {
   global $theme, $base_root, $user;
 
   $block->cache = db_result(db_query("SELECT cache FROM {blocks} WHERE module = '%s' AND delta = %d AND theme = '%s'", $module, $delta, $theme));

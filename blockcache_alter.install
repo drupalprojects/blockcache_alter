@@ -2,6 +2,11 @@
 // $Id$
 
 /**
+ * @file
+ * Install file.
+ */
+
+/**
  * Implementation of hook_uninstall().
  */
 function blockcache_alter_uninstall() {
