@@ -1,6 +1,8 @@
 ; $Id$
 name = Block Cache Alter
 description = "Alter the cache settings per block."
-core = 6.x
+core = 7.x
 version = VERSION
 package = Caching
+files[] = blockcache_alter.module
+files[] = blockcache_alter.install

@@ -25,13 +25,11 @@ function blockcache_alter_menu() {
  */
 function blockcache_alter_admin_settings() {
 
-  $status = _blockcache_alter_core_patch();
-
-  $form['bca_corepatch'] = array(
+  $form['block_cache_aggressive'] = array(
     '#type' => 'checkbox',
-    '#title' => t('Core patch ?'),
-    '#description' => t('Check this box if you applied one of the 2 core patches that comes with this module. This will extend the caching settings fieldset on the block configuration page. Note: if you did not apply the patch but check the box, the additional functionality simply won\'t work at all.<br /><strong>Current status: you have @status applied a blockcache alter patch.</strong>', array('@status' => $status)),
-    '#default_value' => variable_get('bca_corepatch', 0),
+    '#title' => t('Aggressive block caching'),
+    '#description' => t('Check this box to override node grants check in block caching.'),
+    '#default_value' => variable_get('block_cache_aggressive', FALSE),
   );
   $form['bca_debug'] = array(
     '#type' => 'checkbox',
@@ -43,6 +41,14 @@ function blockcache_alter_admin_settings() {
 }
 
 /**
+ * Implementation of hook_node_grants.
+ * Testing hook for 7 dev development see http://drupal.org/node/186636
+ */
+function blockcache_alter_node_grants() {
+  return;
+}
+
+/**
  * Implementation of hook_form_alter().
  */
 function blockcache_alter_form_alter(&$form, $form_state, $form_id) {
@@ -50,10 +56,10 @@ function blockcache_alter_form_alter(&$form, $form_state, $form_id) {
   if ($form_id == 'block_admin_configure') {
 
     // Add some funky hide and show javascript.
-    drupal_add_js(drupal_get_path('module', 'blockcache_alter') .'/blockcache_alter.js', 'module');
+    drupal_add_js(drupal_get_path('module', 'blockcache_alter') .'/blockcache_alter.js', array());
 
-    // Core patch applied or not.
-    $core_patch = variable_get('bca_corepatch', 0);
+    // Aggressive caching or not.
+    $core_patch = variable_get('block_cache_aggressive', FALSE);
 
     // Blockcache options.
     $block_cache_options = array(
@@ -73,7 +79,7 @@ function blockcache_alter_form_alter(&$form, $form_state, $form_id) {
     );
 
     // Retrieve current cache setting for this block.
-    $default_value = db_result(db_query("SELECT cache FROM {blocks} WHERE module = '%s' AND delta = '%s'", $form['module']['#value'], $form['delta']['#value']));
+    $default_value = db_result(db_query("SELECT cache FROM {block} WHERE module = '%s' AND delta = '%s'", $form['module']['#value'], $form['delta']['#value']));
 
     // Blockcache fieldset.
     $form['cache'] = array(
@@ -180,13 +186,10 @@ function blockcache_alter_form_alter(&$form, $form_state, $form_id) {
   // at least on module implements node_grants and blockcache_alter_no_node_grants is not applied.
   // Note, again, we don't check which patch is applied, that's up to the developer.
   if ($form_id == 'system_performance_settings') {
-    $node_grants = $form['block_cache']['block_cache']['#disabled'];
-    $form['block_cache']['block_cache']['#disabled'] = FALSE;
+    $node_grants = variable_get('block_cache_aggressive', FALSE);
     if ($node_grants == TRUE) {
-      $form['block_cache']['block_cache']['#description'] = t('There are modules implementing node grants. If you want block caching to work, you need to apply the "blockcache_alter_no_node_grants.patch"');
-    }
-    else {
-      $form['block_cache']['block_cache']['#description'] = '';
+      $form['block_cache']['block_cache']['#disabled'] = FALSE;
+      $form['block_cache']['block_cache']['#description'] = t('There are modules implementing node grants, be carefull when enabling block cache and make sure to analyze your cache strategy for blocks.');
     }
   }
 }
@@ -198,16 +201,16 @@ function blockcache_alter_form_alter(&$form, $form_state, $form_id) {
  */
 function blockcache_alter_save_settings($form, &$form_state) {
   if (!form_get_errors()) {
-    db_query("UPDATE {blocks} SET visibility = %d, pages = '%s', custom = %d, title = '%s' WHERE module = '%s' AND delta = '%s'", $form_state['values']['visibility'], trim($form_state['values']['pages']), $form_state['values']['custom'], $form_state['values']['title'], $form_state['values']['module'], $form_state['values']['delta']);
-    db_query("DELETE FROM {blocks_roles} WHERE module = '%s' AND delta = '%s'", $form_state['values']['module'], $form_state['values']['delta']);
+    db_query("UPDATE {block} SET visibility = %d, pages = '%s', custom = %d, title = '%s' WHERE module = '%s' AND delta = '%s'", $form_state['values']['visibility'], trim($form_state['values']['pages']), $form_state['values']['custom'], $form_state['values']['title'], $form_state['values']['module'], $form_state['values']['delta']);
+    db_query("DELETE FROM {block_role} WHERE module = '%s' AND delta = '%s'", $form_state['values']['module'], $form_state['values']['delta']);
     foreach (array_filter($form_state['values']['roles']) as $rid) {
-      db_query("INSERT INTO {blocks_roles} (rid, module, delta) VALUES (%d, '%s', '%s')", $rid, $form_state['values']['module'], $form_state['values']['delta']);
+      db_query("INSERT INTO {block_role} (rid, module, delta) VALUES (%d, '%s', '%s')", $rid, $form_state['values']['module'], $form_state['values']['delta']);
     }
     module_invoke($form_state['values']['module'], 'block', 'save', $form_state['values']['delta'], $form_state['values']);
     drupal_set_message(t('The block configuration has been saved.'));
 
     // Update block cache settings.
-    db_query("UPDATE {blocks} set cache = %d WHERE module = '%s' AND delta = '%s'", $form_state['values']['cache_block'], $form_state['values']['module'], $form_state['values']['delta']);
+    db_query("UPDATE {block} set cache = %d WHERE module = '%s' AND delta = '%s'", $form_state['values']['cache_block'], $form_state['values']['module'], $form_state['values']['delta']);
 
     // Core patch applied or not.
     $core_patch = variable_get('bca_corepatch', 0);
@@ -342,7 +345,7 @@ function _blockcache_alter_cleanup($type, $relatednodetype = FALSE) {
   $info = array();
   $time = time();
   $debug = variable_get('bca_debug', FALSE) && user_access('administer site configuration');
-  $result = db_query("SELECT module, delta FROM {blocks} WHERE status = '1' AND cache <> '-1'");
+  $result = db_query("SELECT module, delta FROM {block} WHERE status = '1' AND cache <> '-1'");
   while ($r = db_fetch_object($result)) {
     if (module_exists($r->module)) {
       $refresh = variable_get('bc_refresh_'. $r->module .'_'. $r->delta, array());
@@ -414,7 +417,7 @@ function blockcache_alter_block_view($delta) {
 function _blockcache_alter_get_cache_id($module, $delta) {
   global $theme, $base_root, $user;
 
-  $block->cache = db_result(db_query("SELECT cache FROM {blocks} WHERE module = '%s' AND delta = %d AND theme = '%s'", $module, $delta, $theme));
+  $block->cache = db_result(db_query("SELECT cache FROM {block} WHERE module = '%s' AND delta = %d AND theme = '%s'", $module, $delta, $theme));
 
   // User 1 being out of the regular 'roles define permissions' schema,
   // it brings too many chances of having unwanted output get in the cache
