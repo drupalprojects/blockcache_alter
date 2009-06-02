@@ -15,14 +15,18 @@ Install this to speed up block rendering for authenticated users.
 The module also comes with 2 core patches you can apply to the block module
 which will make block caching much smarter. You'll be able to set expire times
 for block based and cache clearing on actions (nodeapi, comment and user).
+For those who don't like applying patches, you can also use a complete
+patched version of block.module that comes with this module. 
+All patches and module files can be found in the patches directory.
 
-1: blockcache_alter_with_node_grants.patch: most users should use this one.
+1: blockcache_alter_with_node_grants.patch / block_with_node_grants.module
+   Most users should use this one.
 
-2: blockcache_alter_no_node_grants.patch:
-Experienced users can use this one if one of your installed modules is implementing
-a node_grants hook. Drupal checks on this and whenever 1 or more hooks are found
-block caching is disabled completely. Handle with care though, this might
-cause problems, be sure to test your site completely if you apply this patch.
+2: blockcache_alter_no_node_grants.patch / block_no_node_grants.module
+   Experienced users can use this one if one of your installed modules is implementing
+   a node_grants hook. Drupal checks on this and whenever 1 or more hooks are found
+   block caching is disabled completely. Handle with care though, this might
+   cause problems, be sure to test your site completely if you apply this patch.
 
 Note: you can run this module *without* applying a patch, you simply don't get
 that much options for refreshing a block.
@@ -33,8 +37,9 @@ Installation:
    usually be "sites/all/modules/").
 2. Go to "administer -> build -> modules" and enable the module.
 
-3. Apply one of the 2 core patches if you like. Copy them to the block
-   module directory of your Drupal installation and run following command:
+3. Either copy the right patched block.module file or you can
+   apply one of the 2 core patches if you like. If you patch, copy
+   the patchfile to modules/block and run following command:
    
    patch -p0 < filename.
    
