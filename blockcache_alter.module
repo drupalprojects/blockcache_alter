@@ -103,6 +103,9 @@ function blockcache_alter_form_alter(&$form, $form_state, $form_id) {
       '#options' => $cache_clear_actions,
       '#default_value' => 1,
     );
+    if ($core_patch != TRUE) {
+      $form['cache']['cache_block_clear']['#suffix'] = '</div>';
+    }
 
     // Show options underneath onl if core patch is applied.
     if ($core_patch == TRUE) {
