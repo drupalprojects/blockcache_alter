@@ -389,6 +389,10 @@ function blockcache_alter_nodequeue_remove($sqid, $nid) {
  * Helper function to cleanup cache for nodequeue block.
  */
 function _blockcache_alter_nodequeue_cleanup($sqid) {
+  $qid = db_result(db_query("SELECT qid FROM {nodequeue_subqueue} WHERE sqid = %d", $sqid));
+  if ($qid !== FALSE) {
+    $sqid = $qid;
+  }
   $refresh = variable_get('bc_refresh_views_nodequeue_'. $sqid .'-block', array());
   if ($refresh['nodequeue'] == 'nodequeue') {
     db_query("DELETE FROM {cache_block} WHERE cid like '%s'", 'views:nodequeue_'. $sqid .'-block%');
