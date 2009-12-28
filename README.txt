@@ -9,12 +9,14 @@ Overview:
 --------
 Alter cache settings per block. Cache settings per block are now set in code,
 but if you don't like the default - usually none - you can now easily change this
-per block on the block configuration page in a fieldset called 'Caching settings'.
+per block on the block configuration page in a fieldset called 'Cache settings'.
 Install this to speed up block rendering for authenticated users.
 
 The module also comes with 2 core patches you can apply to the block module
 which will make block caching much smarter. You'll be able to set expire times
 for block based and cache clearing on actions (nodeapi, comment and user).
+Nodequeue support is now also included for all nodequeue blocks.
+
 For those who don't like applying patches, you can also use a complete
 patched version of block.module that comes with this module. 
 All patches and module files can be found in the patches directory.
@@ -28,8 +30,11 @@ All patches and module files can be found in the patches directory.
    block caching is disabled completely. Handle with care though, this might
    cause problems, be sure to test your site completely if you apply this patch.
 
-Note: you can run this module *without* applying a patch, you simply don't get
+Notes:
+1: You can run this module *without* applying a patch, you simply don't get
 that much options for refreshing a block.
+2: If you apply a patch, the module must be enabled at all times. Running without
+the patches gives you the option to turn of the module after you made your changes.
 
 Installation:
 -------------

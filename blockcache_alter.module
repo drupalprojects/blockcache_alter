@@ -133,17 +133,22 @@ function blockcache_alter_form_alter(&$form, $form_state, $form_id) {
       );
 
       // Blockcache refresh.
+      $options = array(
+        'node' => t('A node is added/updated/deleted'),
+        'comment' => t('A comment is added/updated/deleted'),
+        'user' => t('A user is added/updated/deleted'),
+        'login' => t('A user logs in our out'),
+      );
+      // Nodequeue support.
+      if (module_exists('nodequeue') && $form['module']['#value'] == 'views' && strstr($form['delta']['#value'], 'nodequeue') !== FALSE) {
+        $options['nodequeue'] = t('A node is added or removed from a nodequeue');
+      }
       $form['cache']['option_2']['bc_refresh'] = array(
         '#prefix' => '<div style="float: left;">',
         '#suffix' => '</div>',
         '#type' => 'checkboxes',
         '#title' => t('Refresh when'),
-        '#options' => array(
-          'node' => t('A node is added/updated/deleted'),
-          'comment' => t('A comment is added/updated/deleted'),
-          'user' => t('A user is added/updated/deleted'),
-          'login' => t('A user logs in our out'),
-        ),
+        '#options' => $options,
         '#default_value' => variable_get('bc_refresh_'. $form['module']['#value'] .'_'. $form['delta']['#value'], array()),
       );
 
@@ -363,6 +368,30 @@ function _blockcache_alter_cleanup($type, $relatednodetype = FALSE) {
   // Implode and put together a LIKE query.
   if ($debug && !empty($info)) {
     drupal_set_message(t("Block re-cached: ". implode('&nbsp;', $info)));
+  }
+}
+
+/**
+ * Implementation of hook_nodequeue_add().
+ */
+function blockcache_alter_nodequeue_add($sqid, $nid) {
+  _blockcache_alter_nodequeue_cleanup($sqid);
+}
+
+/**
+ * Implementation of hook_nodequeue_remove().
+ */
+function blockcache_alter_nodequeue_remove($sqid, $nid) {
+  _blockcache_alter_nodequeue_cleanup($sqid);
+}
+
+/**
+ * Helper function to cleanup cache for nodequeue block.
+ */
+function _blockcache_alter_nodequeue_cleanup($sqid) {
+  $refresh = variable_get('bc_refresh_views_nodequeue_'. $sqid .'-block', array());
+  if ($refresh['nodequeue'] == 'nodequeue') {
+    db_query("DELETE FROM {cache_block} WHERE cid like '%s'", 'views:nodequeue_'. $sqid .'-block%');
   }
 }
 
