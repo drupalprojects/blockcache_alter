@@ -449,7 +449,7 @@ function blockcache_alter_block_view($delta) {
 function _blockcache_alter_get_cache_id($module, $delta) {
   global $theme, $base_root, $user;
 
-  $block->cache = db_result(db_query("SELECT cache FROM {blocks} WHERE module = '%s' AND delta = %d AND theme = '%s'", $module, $delta, $theme));
+  $block->cache = db_result(db_query("SELECT cache FROM {blocks} WHERE module = '%s' AND delta = '%s' AND theme = '%s'", $module, $delta, $theme));
 
   // User 1 being out of the regular 'roles define permissions' schema,
   // it brings too many chances of having unwanted output get in the cache
