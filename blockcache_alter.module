@@ -356,7 +356,7 @@ function _blockcache_alter_cleanup($type, $relatednodetype = FALSE) {
       if (isset($refresh[$type]) && $refresh[$type] === $type) {
         $relate = variable_get('bc_relate_'. $r->module .'_'. $r->delta, array());
         if ($relatednodetype == 'user_actions' || (is_array($relate) && $relate[$relatednodetype] === $relatednodetype)) {
-          db_query("DELETE FROM {cache_block} WHERE cid like '%s'", $r->module .':'. $r->delta .'%');
+          cache_clear_all($r->module .':'. $r->delta, 'cache_block', TRUE);
           if ($debug) {
             $info[] = t('<br /> - module: %mod, delta: %delta', array('%mod' => $r->module, '%delta' => $r->delta));
           }
