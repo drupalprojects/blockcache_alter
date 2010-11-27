@@ -394,7 +394,7 @@ function _blockcache_alter_nodequeue_cleanup($sqid) {
   }
   $refresh = variable_get('bc_refresh_views_nodequeue_'. $sqid .'-block', array());
   if ($refresh['nodequeue'] == 'nodequeue') {
-    db_query("DELETE FROM {cache_block} WHERE cid like '%s'", 'views:nodequeue_'. $sqid .'-block%');
+    cache_clear_all('views:nodequeue_'. $sqid .'-block', 'cache_block', TRUE);
   }
 }
 
