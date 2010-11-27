@@ -1,4 +1,10 @@
 <?php
+// $Id$
+
+/**
+ * @file
+ * Block cache alter module.
+ */
 
 /**
  * Implementation of hook_form_alter().
