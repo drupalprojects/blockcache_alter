@@ -351,9 +351,15 @@ function _blockcache_alter_cleanup($type, $relatednodetype = FALSE) {
   $debug = variable_get('bca_debug', FALSE) && user_access('administer site configuration');
 
   $modules = variable_get('blockcache_alter_include_modules', array());
-  $placeholders = db_placeholders($modules, 'varchar');
-  $query = "SELECT module, delta FROM {blocks} WHERE (status = '1' OR module IN ($placeholders)) AND cache <> '-1'";
-  $result = db_query($query, $modules);
+  if (!empty($modules)) {
+    $placeholders = db_placeholders($modules, 'varchar');    
+    $query = "SELECT module, delta FROM {blocks} WHERE (status = '1' OR module IN ($placeholders)) AND cache <> '-1'";
+    $result = db_query($query, $modules);    
+  }
+  else {
+    $query = "SELECT module, delta FROM {blocks} WHERE status = '1' AND cache <> '-1'";
+    $result = db_query($query);    
+  }
   while ($r = db_fetch_object($result)) {
     if (module_exists($r->module)) {
       $refresh = variable_get('bc_refresh_'. $r->module .'_'. $r->delta, array());
