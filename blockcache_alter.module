@@ -374,6 +374,14 @@ function _blockcache_alter_cleanup($type, $relatednodetype = FALSE) {
       }
     }
   }
+
+  // Let other modules cleanup more.
+  $hook = 'blockcache_alter_cleanup';
+  foreach (module_implements($hook) as $module) {
+    $function = $module . '_' . $hook;
+    $function($type, $relatednodetype, $info);
+  }
+
   // Implode and put together a LIKE query.
   if ($debug && !empty($info)) {
     drupal_set_message(t("Block re-cached: ". implode('&nbsp;', $info)));
