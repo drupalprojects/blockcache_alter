@@ -1,4 +1,3 @@
-// $Id$
 
 /**
  * Check value of cache_block to see if
