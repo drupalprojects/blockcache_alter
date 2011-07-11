@@ -351,13 +351,13 @@ function _blockcache_alter_cleanup($type, $relatednodetype = FALSE) {
 
   $modules = variable_get('blockcache_alter_include_modules', array());
   if (!empty($modules)) {
-    $placeholders = db_placeholders($modules, 'varchar');    
+    $placeholders = db_placeholders($modules, 'varchar');
     $query = "SELECT module, delta FROM {blocks} WHERE (status = '1' OR module IN ($placeholders)) AND cache <> '-1'";
-    $result = db_query($query, $modules);    
+    $result = db_query($query, $modules);
   }
   else {
     $query = "SELECT module, delta FROM {blocks} WHERE status = '1' AND cache <> '-1'";
-    $result = db_query($query);    
+    $result = db_query($query);
   }
   while ($r = db_fetch_object($result)) {
     if (module_exists($r->module)) {
@@ -417,6 +417,7 @@ function _blockcache_alter_nodequeue_cleanup($sqid) {
 
 /**
  * Implementation of hook_block().
+ *
  * Functions underneath will only be called when someone programmaticaly
  * calls a block in code with module_invoke, eg:
  *
@@ -466,7 +467,14 @@ function blockcache_alter_block_view($delta) {
 function _blockcache_alter_get_cache_id($module, $delta) {
   global $theme, $base_root, $user;
 
-  $block->cache = db_result(db_query("SELECT cache FROM {blocks} WHERE module = '%s' AND delta = '%s' AND theme = '%s'", $module, $delta, $theme));
+  static $block_cache = array();
+  if (!isset($block_cache[$module][$delta])) {
+    $result = db_query("SELECT module, delta, cache FROM {blocks} WHERE theme = '%s'", $theme);
+    while ($row = db_fetch_object($result)) {
+      $block_cache[$row->module][$row->delta] = $row->cache;
+    }
+  }
+  $block->cache = $block_cache[$module][$delta];
 
   // User 1 being out of the regular 'roles define permissions' schema,
   // it brings too many chances of having unwanted output get in the cache
