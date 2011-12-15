@@ -1,5 +1,5 @@
---- block.module 2011-05-27 14:04:12.000000000 +0530
-+++ block.module 2011-05-26 17:17:24.000000000 +0530
+--- a/modules/block/block.module
++++ b/modules/block/block.module
 @@ -503,6 +503,7 @@ function block_list($region) {
      $blocks[$region] = array();
    }
