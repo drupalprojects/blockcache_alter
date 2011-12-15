@@ -51,7 +51,6 @@ function blockcache_alter_form_alter(&$form, $form_state, $form_id) {
 
     // Add own submit handler.
     $form['#submit'][] = 'blockcache_alter_save_settings';
-
   }
 }
 
@@ -79,7 +78,7 @@ function blockcache_alter_save_settings($form, &$form_state) {
   $block->delta = $form_state['values']['delta'];
   $block->cache = $form_state['values']['cache_block'];
 
-  foreach($bids as $bid) {
+  foreach ($bids as $bid) {
     $block->bid = $bid;
     drupal_write_record('block', $block, array('bid'));
     if (in_array($bid, $blockcache_alter)) {
@@ -89,7 +88,6 @@ function blockcache_alter_save_settings($form, &$form_state) {
       drupal_write_record('blockcache_alter', $block);
     }
   }
-
 }
 
 /**
@@ -102,12 +100,13 @@ function blockcache_alter_block_info_alter(&$blocks, $theme, $code_blocks) {
     ->execute()
     ->fetchAll();
 
-  foreach($blockcache_alter as $bca) {
-    foreach($blocks[$bca->module] as $key => $module) {
-      if ($module['bid'] == $bca->bid) {
-        $blocks[$bca->module][$key]['cache'] = $bca->cache;
+  foreach ($blockcache_alter as $bca) {
+    if (array_key_exists($bca->module, $blocks)) {
+      foreach ($blocks[$bca->module] as $key => $module) {
+        if ($module['bid'] == $bca->bid) {
+          $blocks[$bca->module][$key]['cache'] = $bca->cache;
+        }
       }
     }
   }
-
 }
