@@ -103,7 +103,7 @@ function blockcache_alter_block_info_alter(&$blocks, $theme, $code_blocks) {
   foreach ($blockcache_alter as $bca) {
     if (array_key_exists($bca->module, $blocks)) {
       foreach ($blocks[$bca->module] as $key => $module) {
-        if ($module['bid'] == $bca->bid) {
+        if (isset($module['bid']) && $module['bid'] == $bca->bid) {
           $blocks[$bca->module][$key]['cache'] = $bca->cache;
         }
       }
