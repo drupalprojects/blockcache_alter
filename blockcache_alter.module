@@ -20,6 +20,26 @@ function blockcache_alter_menu() {
 }
 
 /**
+ * Blockcache alter rehash function.
+ *
+ * This function is called during the block list administration screen
+ * and during hook_flush_caches() so the cache settings are updated.
+ */
+function blockcache_alter_rehash() {
+  $caches = db_query('SELECT * FROM {blockcache_alter}');
+  while ($block = db_fetch_object($caches)) {
+    db_query("UPDATE {blocks} SET cache = %d WHERE module = '%s' AND delta = '%s'", $block->cache, $block->module, $block->delta);
+  }
+}
+
+/**
+ * Implementation of hook_flush_caches().
+ */
+function blockcache_alter_flush_caches() {
+  blockcache_alter_rehash();
+}
+
+/**
  * Menu callback, settings page for blockcache alter
  */
 function blockcache_alter_admin_settings() {
@@ -45,6 +65,12 @@ function blockcache_alter_admin_settings() {
  * Implementation of hook_form_alter().
  */
 function blockcache_alter_form_alter(&$form, $form_state, $form_id) {
+
+  // Rehash on the block admin screen.
+  if ($form_id == 'block_admin_display_form') {
+    blockcache_alter_rehash();
+  }
+
   // Add caching fieldset to the block configure page.
   if ($form_id == 'block_admin_configure') {
 
@@ -72,7 +98,7 @@ function blockcache_alter_form_alter(&$form, $form_state, $form_id) {
     );
 
     // Retrieve current cache setting for this block.
-    $default_value = db_result(db_query("SELECT cache FROM {blocks} WHERE module = '%s' AND delta = '%s'", $form['module']['#value'], $form['delta']['#value']));
+    $default_value = db_result(db_query("SELECT cache FROM {blockcache_alter} WHERE module = '%s' AND delta = '%s'", $form['module']['#value'], $form['delta']['#value']));
 
     // Blockcache fieldset.
     $form['cache'] = array(
@@ -213,8 +239,9 @@ function blockcache_alter_save_settings($form, &$form_state) {
     module_invoke($form_state['values']['module'], 'block', 'save', $form_state['values']['delta'], $form_state['values']);
     drupal_set_message(t('The block configuration has been saved.'));
 
-    // Update block cache settings.
-    db_query("UPDATE {blocks} set cache = %d WHERE module = '%s' AND delta = '%s'", $form_state['values']['cache_block'], $form_state['values']['module'], $form_state['values']['delta']);
+    // Save block cache settings.
+    db_query("DELETE FROM {blockcache_alter} WHERE module = '%s' AND delta = '%s'", $form_state['values']['module'], $form_state['values']['delta']);
+    db_query("INSERT INTO {blockcache_alter} (module, delta, cache) VALUES ('%s', '%s', %d)", $form_state['values']['module'], $form_state['values']['delta'], $form_state['values']['cache_block']);
 
     // Core patch applied or not.
     $core_patch = variable_get('bca_corepatch', 0);
