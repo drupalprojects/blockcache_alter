@@ -29,7 +29,7 @@ function blockcache_alter_schema() {
       ),
       'delta' => array(
         'type' => 'varchar',
-        'length' => 32,
+        'length' => 64,
         'not null' => TRUE,
         'default' => '0',
         'description' => 'Unique ID for block within a module.',
@@ -46,4 +46,17 @@ function blockcache_alter_schema() {
   );
 
   return $schema;
+}
+
+/**
+ * Fix the length of the delta VARCHAR to 64
+ */
+function blockcache_alter_update_7001(&$sandbox) {
+  db_change_field('blockcache_alter', 'delta', 'delta', array(
+    'type' => 'varchar',
+    'length' => 64,
+    'not null' => TRUE,
+    'default' => '0',
+    'description' => 'Unique ID for block within a module.',
+  ));
 }
