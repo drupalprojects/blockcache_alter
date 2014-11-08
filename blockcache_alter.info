@@ -2,3 +2,5 @@ name = Block Cache Alter
 description = "Alter the cache settings per block."
 core = 7.x
 package = Performance and scalability
+
+configure = admin/config/development/performance/blockcache_alter
