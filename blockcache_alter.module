@@ -95,10 +95,16 @@ function blockcache_alter_save_settings($form, &$form_state) {
  */
 function blockcache_alter_block_info_alter(&$blocks, $theme, $code_blocks) {
 
-  $blockcache_alter = db_select('blockcache_alter', 'b')
-    ->fields('b', array('bid', 'module', 'cache'))
-    ->execute()
-    ->fetchAll();
+  try {
+    $blockcache_alter = db_select('blockcache_alter', 'b')
+      ->fields('b', array('bid', 'module', 'cache'))
+      ->execute()
+      ->fetchAll();
+  }
+  catch (PDOException $e) {
+    $blockcache_alter = array();
+    watchdog('blockcache alter', 'Block cache alter was unable to load block cache data. You may need to run updates.', array(), WATCHDOG_ERROR);
+  }
 
   foreach ($blockcache_alter as $bca) {
     if (array_key_exists($bca->module, $blocks)) {
