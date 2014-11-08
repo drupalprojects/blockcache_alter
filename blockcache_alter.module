@@ -116,3 +116,15 @@ function blockcache_alter_block_info_alter(&$blocks, $theme, $code_blocks) {
     }
   }
 }
+
+/**
+ * Implements hook_module_implements_alter().
+ */
+function blockcache_alter_module_implements_alter(&$implementations, $hook) {
+  // Ensure our hook_block_info_alter() implementation trumps all others.
+  if ($hook == 'block_info_alter') {
+    $bca_group = $implementations['blockcache_alter'];
+    unset ($implementations['blockcache_alter']);
+    $implementations['blockcache_alter'] = $bca_group;
+  }
+}
